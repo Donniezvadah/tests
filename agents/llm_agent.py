@@ -3,11 +3,8 @@ import random
 import time
 import os
 import re
-import json
-import hashlib
 from typing import Dict, List, Tuple, Optional, Any, Union
 from datetime import datetime, timedelta
-from functools import lru_cache
 
 from openai import OpenAI, APIError, APITimeoutError, RateLimitError
 from .base_agent import BaseAgent
@@ -20,9 +17,9 @@ class LLMAgent(BaseAgent):
 
     def __init__(self, api_key: str = None, model: str = "gpt-4.1-nano", 
                  temperature: float = 0.0, max_retries: int = 3, 
-                 timeout: int = 30, cache_dir: str = '.llm_cache'):
+                 timeout: int = 30):
         """
-        Initialize the LLM agent with enhanced error handling and caching.
+        Initialize the LLM agent with enhanced error handling.
         
         Args:
             api_key: OpenAI API key. If None, will try to get from llm_api.txt.
@@ -30,14 +27,12 @@ class LLMAgent(BaseAgent):
             temperature: Controls randomness in the response (0-1).
             max_retries: Maximum number of retries for API calls.
             timeout: Timeout in seconds for API calls.
-            cache_dir: Directory to store API response caches.
         """
         super().__init__("LLM")
         self.model = model
         self.temperature = max(0, min(1, temperature))  # Clamp between 0 and 1
         self.max_retries = max(1, max_retries)
         self.timeout = max(5, timeout)  # Minimum 5 second timeout
-        self._cache_dir = cache_dir
         
         # Initialize state
         self._rewards = None
@@ -62,9 +57,6 @@ class LLMAgent(BaseAgent):
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
         
-        # Create cache directory if it doesn't exist
-        os.makedirs(self._cache_dir, exist_ok=True)
-        
         # Test the API connection
         self._test_connection()
 
@@ -81,41 +73,6 @@ class LLMAgent(BaseAgent):
         self._action_history = []
         self._reward_history = []
 
-    def _get_cache_key(self, prompt: str) -> str:
-        """Generate a cache key for the given prompt."""
-        return hashlib.md5(prompt.encode()).hexdigest()
-    
-    def _load_from_cache(self, cache_key: str) -> Optional[str]:
-        """Load a response from the cache if it exists and is recent."""
-        cache_file = os.path.join(self._cache_dir, f"{cache_key}.json")
-        if not os.path.exists(cache_file):
-            return None
-            
-        try:
-            with open(cache_file, 'r') as f:
-                cache_data = json.load(f)
-                # Check if cache is still valid (1 day)
-                if time.time() - cache_data['timestamp'] < 86400:  # 24 hours
-                    return cache_data['response']
-        except (json.JSONDecodeError, KeyError, IOError):
-            pass
-        return None
-    
-    def _save_to_cache(self, cache_key: str, response: str):
-        """Save a response to the cache."""
-        cache_file = os.path.join(self._cache_dir, f"{cache_key}.json")
-        cache_data = {
-            'timestamp': time.time(),
-            'response': response,
-            'model': self.model,
-            'temperature': self.temperature
-        }
-        try:
-            with open(cache_file, 'w') as f:
-                json.dump(cache_data, f)
-        except IOError:
-            pass  # Don't fail if cache save fails
-    
     def _throttle_api_calls(self):
         """Ensure we don't exceed API rate limits."""
         elapsed = time.time() - self._last_api_call
@@ -202,21 +159,6 @@ class LLMAgent(BaseAgent):
         Raises:
             RuntimeError: If all retry attempts fail.
         """
-        cache_key = self._get_cache_key(prompt)
-        
-        # Try to load from cache first
-        cached_response = self._load_from_cache(cache_key)
-        if cached_response is not None:
-            print("Using cached response")
-            return cached_response
-        
-        # Prepare messages
-        messages = [
-            {"role": "system", "content": """You are an expert at playing multi-armed bandit games. 
-            Your goal is to maximize the cumulative reward by balancing exploration and exploitation."""},
-            {"role": "user", "content": prompt}
-        ]
-        
         last_error = None
         
         for attempt in range(self.max_retries):
@@ -226,7 +168,11 @@ class LLMAgent(BaseAgent):
                 
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    messages=messages,
+                    messages=[
+                        {"role": "system", "content": """You are an expert at playing multi-armed bandit games. 
+                        Your goal is to maximize the cumulative reward by balancing exploration and exploitation."""},
+                        {"role": "user", "content": prompt}
+                    ],
                     temperature=self.temperature,
                     max_tokens=100,
                     timeout=self.timeout
@@ -235,8 +181,6 @@ class LLMAgent(BaseAgent):
                 response_text = response.choices[0].message.content.strip()
                 print(f"API Response: {response_text[:100]}...")  # Log first 100 chars
                 
-                # Cache the successful response
-                self._save_to_cache(cache_key, response_text)
                 return response_text
                 
             except (APIError, APITimeoutError, RateLimitError) as e:
@@ -338,70 +282,6 @@ Your response:"""
             
         return action
     
-    def _call_llm_api(self, prompt: str) -> str:
-        """
-        Call the LLM API with retries and error handling.
-        
-        Args:
-            prompt: The prompt to send to the LLM.
-            
-        Returns:
-            The response text from the LLM.
-            
-        Raises:
-            RuntimeError: If all retry attempts fail.
-        """
-        cache_key = self._get_cache_key(prompt)
-        
-        # Try to load from cache first
-        cached_response = self._load_from_cache(cache_key)
-        if cached_response is not None:
-            print("Using cached response")
-            return cached_response
-        
-        # Prepare messages
-        messages = [
-            {"role": "system", "content": """You are an expert at playing multi-armed bandit games. 
-            Your goal is to maximize the cumulative reward by balancing exploration and exploitation."""},
-            {"role": "user", "content": prompt}
-        ]
-        
-        last_error = None
-        
-        for attempt in range(self.max_retries):
-            try:
-                self._throttle_api_calls()
-                print(f"Calling OpenAI API (attempt {attempt + 1}/{self.max_retries}) with model: {self.model}")
-                
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=self.temperature,
-                    max_tokens=100,
-                    timeout=self.timeout
-                )
-                
-                response_text = response.choices[0].message.content.strip()
-                print(f"API Response: {response_text[:100]}...")  # Log first 100 chars
-                
-                # Cache the successful response
-                self._save_to_cache(cache_key, response_text)
-                return response_text
-                
-            except (APIError, APITimeoutError, RateLimitError) as e:
-                last_error = e
-                wait_time = (2 ** attempt) + (random.random() * 0.5)  # Add jitter
-                print(f"API error (attempt {attempt + 1}/{self.max_retries}): {str(e)}")
-                print(f"Retrying in {wait_time:.1f} seconds...")
-                time.sleep(wait_time)
-            except Exception as e:
-                last_error = e
-                print(f"Unexpected error (attempt {attempt + 1}/{self.max_retries}): {str(e)}")
-                break
-        
-        # If we get here, all retries failed
-        raise RuntimeError(f"Failed to get response from LLM after {self.max_retries} attempts: {str(last_error)}")
-
     def update(self, action, reward):
         """
         Update the agent's internal state based on the action taken and reward received.
