@@ -16,7 +16,7 @@ from agents.gaussian_epsilon_greedy import GaussianEpsilonGreedyAgent
 from agents.gaussian_ucb import GaussianUCBAgent
 from agents.gaussian_thompson_sampling import GaussianThompsonSamplingAgent
 from agents.ucb_kl import KLUCBAgent
-from agents.llm_agentV2 import LLMAgent as LLMAgentV2
+
 
 def load_config():
     """
@@ -122,7 +122,7 @@ def main():
             KLUCBAgent(n_arms=len(probs)),
             ThompsonSamplingAgent(environment_type='bernoulli'),
             LLMAgent(model="gpt-4.1-nano"),
-            LLMAgentV2(model="gpt-4.1-nano")
+            # LLMAgentV2(model="gpt-4.1-nano")
         ]
         print(f"Initialized {len(agents)} agents")
         
@@ -175,7 +175,7 @@ def main():
             GaussianUCBAgent(n_arms=len(means)),
             GaussianThompsonSamplingAgent(n_arms=len(means)),
             LLMAgent(model="gpt-4.1-nano"),
-            LLMAgentV2(model="gpt-4.1-nano")
+            # LLMAgentV2(model="gpt-4.1-nano")
         ]
         print(f"Updated agents for Gaussian environment")
         
