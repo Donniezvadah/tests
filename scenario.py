@@ -157,9 +157,7 @@ class BanditScenario:
         for agent_name, rewards in results.items():
             regret = np.cumsum(optimal_per_episode[:, None] - rewards, axis=1)
             mean_regret = regret.mean(axis=0)
-            std_regret = regret.std(axis=0)
-            plt.plot(mean_regret, label=agent_name)
-            # plt.fill_between(np.arange(self.n_trials), mean_regret-std_regret, mean_regret+std_regret, alpha=0.15)  # Removed confidence intervals
+            plt.plot(mean_regret, label=agent_name, linestyle='--')  # Use dashed lines
         plt.title(f'Cumulative Regret - {env_type} - {scenario.capitalize()}')
         plt.xlabel('Trial #')
         plt.ylabel('Cumulative Regret')
@@ -179,18 +177,46 @@ class BanditScenario:
         plt.savefig(os.path.join(self.plot_dir, filename), dpi=200)
         plt.close()
 
+    def plot_easy_hard_subplots(self, easy_results, easy_optimal, hard_results, hard_optimal, env_type):
+        plt.figure(figsize=(12, 5))
+        scenarios = ['easy', 'hard']
+        results_list = [easy_results, hard_results]
+        optimal_list = [easy_optimal, hard_optimal]
+        for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios)):
+            plt.subplot(1, 2, i+1)
+            for agent_name, rewards in results.items():
+                regret = np.cumsum(optimal[:, None] - rewards, axis=1)
+                mean_regret = regret.mean(axis=0)
+                plt.plot(mean_regret, label=agent_name, linestyle='--')
+            plt.title(f'{env_type} - {scenario.capitalize()}')
+            plt.xlabel('Trial #')
+            plt.ylabel('Cumulative Regret')
+            plt.legend()
+            plt.grid(True, linestyle='--', alpha=0.6)
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.png'), dpi=200)
+        plt.close()
+
 def main():
     scenarios = ['easy', 'medium', 'hard', 'uniform']
-    bandit_scenario = BanditScenario(n_trials=100, n_episodes=20000)
+    bandit_scenario = BanditScenario(n_trials=1000, n_episodes=200)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
+    bernoulli_results_dict = {}
+    bernoulli_optimal_dict = {}
+    gaussian_results_dict = {}
+    gaussian_optimal_dict = {}
     for scenario in scenarios:
         print(f"\nRunning {scenario} scenario...")
         # Bernoulli
         bernoulli_results, bernoulli_optimal = bandit_scenario.run_bernoulli_scenario(scenario)
         bandit_scenario.plot_cumulative_regret(bernoulli_results, bernoulli_optimal, scenario, 'Bernoulli')
+        bernoulli_results_dict[scenario] = bernoulli_results
+        bernoulli_optimal_dict[scenario] = bernoulli_optimal
         # Gaussian
         gaussian_results, gaussian_optimal = bandit_scenario.run_gaussian_scenario(scenario)
         bandit_scenario.plot_cumulative_regret(gaussian_results, gaussian_optimal, scenario, 'Gaussian')
+        gaussian_results_dict[scenario] = gaussian_results
+        gaussian_optimal_dict[scenario] = gaussian_optimal
         # For heatmap: store final cumulative regret for each agent (use per-episode optimal)
         regret_summary['Bernoulli'].append([
             np.mean(np.cumsum(bernoulli_optimal[:, None] - bernoulli_results[agent], axis=1)[:, -1])
@@ -204,7 +230,16 @@ def main():
     agents = list(bandit_scenario.bernoulli_agents.keys())
     bandit_scenario.plot_heatmap(np.array(regret_summary['Bernoulli']), scenarios, agents, 'Bernoulli Bandit: Final Cumulative Regret', 'bernoulli_regret_heatmap.png')
     bandit_scenario.plot_heatmap(np.array(regret_summary['Gaussian']), scenarios, agents, 'Gaussian Bandit: Final Cumulative Regret', 'gaussian_regret_heatmap.png')
-    print("Plots saved: cumulative regret curves and heatmaps.")
+    # Plot easy/hard subplots for both bandit types
+    bandit_scenario.plot_easy_hard_subplots(
+        bernoulli_results_dict['easy'], bernoulli_optimal_dict['easy'],
+        bernoulli_results_dict['hard'], bernoulli_optimal_dict['hard'],
+        'Bernoulli')
+    bandit_scenario.plot_easy_hard_subplots(
+        gaussian_results_dict['easy'], gaussian_optimal_dict['easy'],
+        gaussian_results_dict['hard'], gaussian_optimal_dict['hard'],
+        'Gaussian')
+    print("Plots saved: cumulative regret curves, subplots, and heatmaps.")
 
 if __name__ == "__main__":
     main() 
