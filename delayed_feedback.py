@@ -10,10 +10,12 @@ from agents.ucb_kl import KLUCBAgent
 from agents.gaussian_epsilon_greedy import GaussianEpsilonGreedyAgent
 from agents.gaussian_ucb import GaussianUCBAgent
 from agents.gaussian_thompson_sampling import GaussianThompsonSamplingAgent
-#from agents.llm_agent import LLMAgent  # Commented out unless LLM agent is needed
+from agents.llm_agent import LLMAgent
 from environments.bernoulli_bandit import BernoulliBandit
 from environments.gaussian_bandit import GaussianBandit
 import time
+import inspect
+import shutil
 
 AGENT_CLASSES = {
     'epsilon_greedy': EpsilonGreedyAgent,
@@ -23,7 +25,7 @@ AGENT_CLASSES = {
     'gaussian_epsilon_greedy': GaussianEpsilonGreedyAgent,
     'gaussian_ucb': GaussianUCBAgent,
     'gaussian_thompson_sampling': GaussianThompsonSamplingAgent,
-    # 'llm_agent': LLMAgent,
+    'llm_agent': LLMAgent,
 }
 
 ENV_CLASSES = {
@@ -33,20 +35,29 @@ ENV_CLASSES = {
 
 def run_experiment(agent_names, env_name, env_args, delays, n_arms, n_runs, horizon, seed):
     results = {agent: [] for agent in agent_names}
+    print(f"Running experiment for agents: {agent_names}")
     for agent_name in agent_names:
+        print(f"\nProcessing agent: {agent_name}")
         AgentClass = AGENT_CLASSES[agent_name]
         for delay in delays:
+            print(f"  Testing delay: {delay}")
             regrets_runs = []
             for run in range(n_runs):
+                print(f"    Run {run + 1}/{n_runs}")
                 np.random.seed(seed + run)
                 env = ENV_CLASSES[env_name](**env_args)
                 if env_name == 'gaussian' and hasattr(env, 'set'):
                     means, stds = np.linspace(0, 1, n_arms), np.ones(n_arms)
                     env.set(means, stds)
-                if agent_name == 'epsilon_greedy':
-                    agent = AgentClass()
-                else:
+                # Dynamically check if n_arms is required in the constructor
+                sig = inspect.signature(AgentClass.__init__)
+                params = list(sig.parameters.values())
+                # Exclude 'self'
+                params = [p for p in params if p.name != 'self']
+                if len(params) > 0 and params[0].name == 'n_arms':
                     agent = AgentClass(n_arms)
+                else:
+                    agent = AgentClass()
                 agent.init_actions(n_arms)
                 if hasattr(agent, 'reset'):
                     agent.reset()
@@ -109,8 +120,9 @@ def plot_regret_vs_delay(results, delays, agent_labels, filename):
     plt.savefig(filename, dpi=200)
     plt.close()
 
-@hydra.main(config_path="../../configurations", config_name="delayed_feedback_experiment", version_base=None)
+@hydra.main(config_path="configurations", config_name="delayed_feedback", version_base=None)
 def main(cfg: DictConfig):
+    print("Starting experiment with configuration:", cfg)
     exp_cfg = cfg['experiment']
     delays = exp_cfg['delays']
     n_arms = exp_cfg['n_arms']
@@ -118,19 +130,38 @@ def main(cfg: DictConfig):
     horizon = exp_cfg['horizon']
     seed = exp_cfg['seed']
     output_dir = exp_cfg['output_dir']
-    os.makedirs(output_dir, exist_ok=True)
+    print(f"Creating output directory: {output_dir}")
+
+    # Clean output directory before each run
+    if os.path.exists(output_dir):
+        print(f"Cleaning output directory: {output_dir}")
+        for filename in os.listdir(output_dir):
+            file_path = os.path.join(output_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+    else:
+        os.makedirs(output_dir, exist_ok=True)
 
     # Bernoulli
+    print("Starting Bernoulli experiments...")
     bernoulli_agents = cfg['bernoulli_agent_names']
+    print(f"Bernoulli agents: {bernoulli_agents}")
     bernoulli_labels = {
         'epsilon_greedy': 'Epsilon-Greedy',
         'ucb': 'UCB',
         'thompson_sampling': 'Thompson Sampling',
-        'kl_ucb': 'KL-UCB'
+        'kl_ucb': 'KL-UCB',
+        'llm_agent': 'LLM Agent'
     }
     bernoulli_results = run_experiment(
         bernoulli_agents, 'bernoulli', {'n_actions': n_arms}, delays, n_arms, n_runs, horizon, seed
     )
+    print("Bernoulli results:", bernoulli_results)
     latex_bernoulli = make_latex_table(
         bernoulli_results, delays, bernoulli_labels, os.path.join(output_dir, "delayed_feedback_table_bernoulli.tex")
     )
@@ -143,11 +174,13 @@ def main(cfg: DictConfig):
     gaussian_labels = {
         'gaussian_epsilon_greedy': 'Gaussian Epsilon-Greedy',
         'gaussian_ucb': 'Gaussian UCB',
-        'gaussian_thompson_sampling': 'Gaussian Thompson Sampling'
+        'gaussian_thompson_sampling': 'Gaussian Thompson Sampling',
+        'llm_agent': 'LLM Agent'
     }
     gaussian_results = run_experiment(
         gaussian_agents, 'gaussian', {'n_actions': n_arms}, delays, n_arms, n_runs, horizon, seed
     )
+    print("Gaussian results:", gaussian_results)
     latex_gaussian = make_latex_table(
         gaussian_results, delays, gaussian_labels, os.path.join(output_dir, "delayed_feedback_table_gaussian.tex")
     )
