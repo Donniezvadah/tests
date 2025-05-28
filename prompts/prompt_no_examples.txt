@@ -1,0 +1,28 @@
+You are solving a multi-armed bandit decision-making problem for 25 rounds.
+
+There are {n_actions} arms (numbered 0 to {n_actions-1}). At each round, you need to choose one arm to pull.
+
+After pulling an arm, you will receive a reward of either 1 (win) or 0 (loss). The reward is determined by the arm's true probability of winning, which is fixed but unknown.
+
+Here is the detailed history of arm pulls and outcomes:
+{history}
+
+For each arm, you have access to:
+- Total number of pulls
+- Cumulative win count
+- Cumulative loss count
+- Win rate (wins/total pulls)
+- Cumulative reward
+
+Your goal is to maximize your total reward over time. This requires balancing:
+1. Exploration: Trying different arms to learn their true win probabilities
+2. Exploitation: Choosing arms that have shown good performance
+
+Please analyze the history carefully and make your decision based on:
+- Arms with high win rates but few pulls (potential for good performance)
+- Arms with consistent performance over many pulls (reliable choices)
+- Arms that haven't been tried enough (exploration opportunity)
+
+Please respond with ONLY the arm number (0-{n_actions-1}) and a detailed explanation of your choice.
+
+Your response must be in the format: 'N # explanation' where N is the arm number (0-{n_actions-1}) 
