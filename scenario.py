@@ -2,10 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional
 import seaborn as sns
-from agents.llm_agent import LLMAgent
+# from agents.llm_agent import LLMAgent  # Commented out LLM agent
 from agents.epsilon import EpsilonGreedyAgent
+from agents.gaussian_epsilon_greedy import GaussianEpsilonGreedyAgent
 from agents.ucb import UCBAgent
+from agents.gaussian_ucb import GaussianUCBAgent
 from agents.thompson import ThompsonSamplingAgent
+from agents.gaussian_thompson_sampling import GaussianThompsonSamplingAgent
 from environments.bernoulli_bandit import BernoulliBandit
 from environments.gaussian_bandit import GaussianBandit
 import os
@@ -30,12 +33,20 @@ class BanditScenario:
         self.n_trials = n_trials
         self.n_episodes = n_episodes
         
-        # Initialize agents
-        self.agents = {
-            'LLM': LLMAgent(),
-            'Epsilon-Greedy': EpsilonGreedyAgent(epsilon=0.1),
+        # Initialize agents for Bernoulli bandit
+        self.bernoulli_agents = {
+            'Epsilon-Greedy': EpsilonGreedyAgent(epsilon=0.1, environment_type='bernoulli'),
             'UCB': UCBAgent(),
-            'Thompson Sampling': ThompsonSamplingAgent()
+            'Thompson Sampling': ThompsonSamplingAgent(environment_type='bernoulli'),
+            # 'LLM': LLMAgent(model="gpt-4.1-nano"),  # Commented out LLM agent
+        }
+        
+        # Initialize agents for Gaussian bandit
+        self.gaussian_agents = {
+            'Epsilon-Greedy': GaussianEpsilonGreedyAgent(n_arms=n_arms, epsilon=0.1),
+            'UCB': GaussianUCBAgent(n_arms=n_arms),
+            'Thompson Sampling': GaussianThompsonSamplingAgent(n_arms=n_arms),
+            # 'LLM': LLMAgent(model="gpt-4.1-nano"),  # Commented out LLM agent
         }
         
         # Set up plotting style
@@ -105,13 +116,13 @@ class BanditScenario:
         return (mean1, std1), (mean2, std2)
         
     def run_bernoulli_scenario(self, scenario: str):
-        results = {agent_name: np.zeros((self.n_episodes, self.n_trials)) for agent_name in self.agents.keys()}
+        results = {agent_name: np.zeros((self.n_episodes, self.n_trials)) for agent_name in self.bernoulli_agents.keys()}
         optimal_per_episode = np.zeros(self.n_episodes)
         for episode in range(self.n_episodes):
             p1, p2 = self._sample_bernoulli_params(scenario)
             env = BernoulliBandit(n_actions=2, probs=[p1, p2])
             optimal_per_episode[episode] = max(p1, p2)
-            for agent_name, agent in self.agents.items():
+            for agent_name, agent in self.bernoulli_agents.items():
                 agent.init_actions(self.n_arms)
                 rewards = []
                 for _ in range(self.n_trials):
@@ -123,14 +134,14 @@ class BanditScenario:
         return results, optimal_per_episode
         
     def run_gaussian_scenario(self, scenario: str):
-        results = {agent_name: np.zeros((self.n_episodes, self.n_trials)) for agent_name in self.agents.keys()}
+        results = {agent_name: np.zeros((self.n_episodes, self.n_trials)) for agent_name in self.gaussian_agents.keys()}
         optimal_per_episode = np.zeros(self.n_episodes)
         for episode in range(self.n_episodes):
             (mean1, std1), (mean2, std2) = self._sample_gaussian_params(scenario)
             env = GaussianBandit(n_actions=2)
             env.set([mean1, mean2], [std1, std2])
             optimal_per_episode[episode] = max(mean1, mean2)
-            for agent_name, agent in self.agents.items():
+            for agent_name, agent in self.gaussian_agents.items():
                 agent.init_actions(self.n_arms)
                 rewards = []
                 for _ in range(self.n_trials):
@@ -148,7 +159,7 @@ class BanditScenario:
             mean_regret = regret.mean(axis=0)
             std_regret = regret.std(axis=0)
             plt.plot(mean_regret, label=agent_name)
-            plt.fill_between(np.arange(self.n_trials), mean_regret-std_regret, mean_regret+std_regret, alpha=0.15)
+            # plt.fill_between(np.arange(self.n_trials), mean_regret-std_regret, mean_regret+std_regret, alpha=0.15)  # Removed confidence intervals
         plt.title(f'Cumulative Regret - {env_type} - {scenario.capitalize()}')
         plt.xlabel('Trial #')
         plt.ylabel('Cumulative Regret')
@@ -170,7 +181,7 @@ class BanditScenario:
 
 def main():
     scenarios = ['easy', 'medium', 'hard', 'uniform']
-    bandit_scenario = BanditScenario(n_trials=100, n_episodes=20)
+    bandit_scenario = BanditScenario(n_trials=100, n_episodes=20000)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     for scenario in scenarios:
         print(f"\nRunning {scenario} scenario...")
@@ -183,14 +194,14 @@ def main():
         # For heatmap: store final cumulative regret for each agent (use per-episode optimal)
         regret_summary['Bernoulli'].append([
             np.mean(np.cumsum(bernoulli_optimal[:, None] - bernoulli_results[agent], axis=1)[:, -1])
-            for agent in bandit_scenario.agents.keys()
+            for agent in bandit_scenario.bernoulli_agents.keys()
         ])
         regret_summary['Gaussian'].append([
             np.mean(np.cumsum(gaussian_optimal[:, None] - gaussian_results[agent], axis=1)[:, -1])
-            for agent in bandit_scenario.agents.keys()
+            for agent in bandit_scenario.gaussian_agents.keys()
         ])
     # Plot heatmaps
-    agents = list(bandit_scenario.agents.keys())
+    agents = list(bandit_scenario.bernoulli_agents.keys())
     bandit_scenario.plot_heatmap(np.array(regret_summary['Bernoulli']), scenarios, agents, 'Bernoulli Bandit: Final Cumulative Regret', 'bernoulli_regret_heatmap.png')
     bandit_scenario.plot_heatmap(np.array(regret_summary['Gaussian']), scenarios, agents, 'Gaussian Bandit: Final Cumulative Regret', 'gaussian_regret_heatmap.png')
     print("Plots saved: cumulative regret curves and heatmaps.")

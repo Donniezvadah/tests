@@ -8,21 +8,23 @@ class EpsilonGreedyAgent(BaseAgent):
     with probability 1-epsilon.
     """
 
-    def __init__(self, epsilon=0.01, environment_type='bernoulli'):
+    def __init__(self, epsilon: float = 0.1, environment_type: str = 'bernoulli', c: float = 1.0):
         """
         Initializes the EpsilonGreedyAgent.
 
         Args:
             epsilon (float): The probability of exploration (choosing a random action).
             environment_type (str): Type of environment ('bernoulli' or 'gaussian')
+            c (float): Parameter for annealed epsilon
         """
         super().__init__("EpsilonGreedy")
         if not (0 <= epsilon <= 1):
             raise ValueError("Epsilon must be between 0 and 1")
-        self._epsilon = epsilon
+        self.epsilon = epsilon
         self._successes = None
         self._failures = None
         self.environment_type = environment_type
+        self.c = c
         self.t = 0  # Add time step counter
 
     def init_actions(self, n_actions):
@@ -39,6 +41,7 @@ class EpsilonGreedyAgent(BaseAgent):
         else:  # gaussian
             self.rewards = np.zeros(n_actions)
             self.counts = np.zeros(n_actions)
+        self.t = 0
 
     def get_action(self):
         """
@@ -48,11 +51,10 @@ class EpsilonGreedyAgent(BaseAgent):
             int: The index of the chosen action.
         """
         self.t += 1  # Increment time step
+        current_epsilon = min(1.0, self.c / np.sqrt(self.t))
         if self.environment_type == 'bernoulli':
             if self._successes is None or self._failures is None:
                 raise ValueError("Agent has not been initialized. Call init_actions() first.")
-            # Decaying epsilon: epsilon = 1/sqrt(t)
-            current_epsilon = min(1.0, 1.0 / np.sqrt(self.t))
             if np.random.random() < current_epsilon:
                 return np.random.randint(len(self._successes))
             else:
@@ -61,7 +63,7 @@ class EpsilonGreedyAgent(BaseAgent):
         else:  # gaussian
             if self.rewards is None or self.counts is None:
                 raise ValueError("Agent has not been initialized. Call init_actions() first.")
-            if np.random.random() < self._epsilon:
+            if np.random.random() < current_epsilon:
                 return np.random.randint(len(self.rewards))
             else:
                 q_values = self.rewards / (self.counts + 1e-6)
@@ -86,4 +88,4 @@ class EpsilonGreedyAgent(BaseAgent):
     @property
     def name(self):
         """Returns the name of the agent, including the epsilon value and environment type."""
-        return f"{self._name}(epsilon={self._epsilon}, {self.environment_type})"
+        return f"{self._name}(epsilon={self.epsilon}, {self.environment_type})"
