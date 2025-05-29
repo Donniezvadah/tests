@@ -39,7 +39,7 @@ class LLMAgent(BaseAgent):
         self._counts = None
         self._action_history = []
         self._reward_history = []
-        self._context_window = 20  # Increased context window
+        self._context_window = 100# Increased context window
         self._last_api_call = 0
         self._min_call_interval = 0.1  # 100ms between API calls to avoid rate limiting
         

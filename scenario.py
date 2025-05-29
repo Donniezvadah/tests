@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional
 import seaborn as sns
-# from agents.llm_agent import LLMAgent  # Commented out LLM agent
+from agents.llm_agent import LLMAgent
 from agents.epsilon import EpsilonGreedyAgent
 from agents.gaussian_epsilon_greedy import GaussianEpsilonGreedyAgent
 from agents.ucb import UCBAgent
@@ -38,7 +38,7 @@ class BanditScenario:
             'Epsilon-Greedy': EpsilonGreedyAgent(epsilon=0.1, environment_type='bernoulli'),
             'UCB': UCBAgent(),
             'Thompson Sampling': ThompsonSamplingAgent(environment_type='bernoulli'),
-            # 'LLM': LLMAgent(model="gpt-4.1-nano"),  # Commented out LLM agent
+            'LLM': LLMAgent(model="gpt-4.1-nano"),
         }
         
         # Initialize agents for Gaussian bandit
@@ -46,7 +46,7 @@ class BanditScenario:
             'Epsilon-Greedy': GaussianEpsilonGreedyAgent(n_arms=n_arms, epsilon=0.1),
             'UCB': GaussianUCBAgent(n_arms=n_arms),
             'Thompson Sampling': GaussianThompsonSamplingAgent(n_arms=n_arms),
-            # 'LLM': LLMAgent(model="gpt-4.1-nano"),  # Commented out LLM agent
+            'LLM': LLMAgent(model="gpt-4.1-nano"),
         }
         
         # Set up plotting style
@@ -152,17 +152,45 @@ class BanditScenario:
                 results[agent_name][episode, :] = rewards
         return results, optimal_per_episode
         
+    def calculate_cumulative_regret(self, rewards, optimal_rewards):
+        """Calculate cumulative regret ensuring it's non-decreasing.
+        
+        Args:
+            rewards: Array of shape (n_episodes, n_trials) with rewards for each trial
+            optimal_rewards: Array of shape (n_episodes,) with optimal reward for each episode
+            
+        Returns:
+            Array of shape (n_episodes, n_trials) with cumulative regret
+        """
+        n_episodes, n_trials = rewards.shape
+        cumulative_regret = np.zeros_like(rewards)
+        
+        for ep in range(n_episodes):
+            optimal = optimal_rewards[ep]
+            regret = np.maximum(0, optimal - rewards[ep])  # Ensure non-negative regret
+            cumulative_regret[ep] = np.cumsum(regret)
+            
+            # Ensure regret is non-decreasing (handle any numerical issues)
+            for t in range(1, n_trials):
+                if cumulative_regret[ep, t] < cumulative_regret[ep, t-1]:
+                    cumulative_regret[ep, t] = cumulative_regret[ep, t-1]
+                    
+        return cumulative_regret
+
     def plot_cumulative_regret(self, results, optimal_per_episode, scenario, env_type):
         plt.figure(figsize=(7, 5))
         for agent_name, rewards in results.items():
-            regret = np.cumsum(optimal_per_episode[:, None] - rewards, axis=1)
-            mean_regret = regret.mean(axis=0)
-            plt.plot(mean_regret, label=agent_name, linestyle='--')  # Use dashed lines
+            # Calculate cumulative regret
+            cumulative_regret = self.calculate_cumulative_regret(rewards, optimal_per_episode)
+            mean_regret = cumulative_regret.mean(axis=0)
+            plt.plot(mean_regret, label=agent_name, linestyle='--')
+            
         plt.title(f'Cumulative Regret - {env_type} - {scenario.capitalize()}')
         plt.xlabel('Trial #')
         plt.ylabel('Cumulative Regret')
         plt.legend()
         plt.grid(True, linestyle='--', alpha=0.6)
+        plt.ylim(bottom=0)  # Ensure y-axis starts at 0
         plt.tight_layout()
         plt.savefig(os.path.join(self.plot_dir, f'cumulative_regret_{env_type}_{scenario}.png'), dpi=200)
         plt.close()
@@ -182,24 +210,29 @@ class BanditScenario:
         scenarios = ['easy', 'hard']
         results_list = [easy_results, hard_results]
         optimal_list = [easy_optimal, hard_optimal]
-        for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios)):
-            plt.subplot(1, 2, i+1)
+        
+        for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios), 1):
+            plt.subplot(1, 2, i)
             for agent_name, rewards in results.items():
-                regret = np.cumsum(optimal[:, None] - rewards, axis=1)
-                mean_regret = regret.mean(axis=0)
+                # Calculate cumulative regret using the proper method
+                cumulative_regret = self.calculate_cumulative_regret(rewards, optimal)
+                mean_regret = cumulative_regret.mean(axis=0)
                 plt.plot(mean_regret, label=agent_name, linestyle='--')
+                
             plt.title(f'{env_type} - {scenario.capitalize()}')
             plt.xlabel('Trial #')
             plt.ylabel('Cumulative Regret')
             plt.legend()
             plt.grid(True, linestyle='--', alpha=0.6)
+            plt.ylim(bottom=0)  # Ensure y-axis starts at 0
+            
         plt.tight_layout()
         plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.png'), dpi=200)
         plt.close()
 
 def main():
     scenarios = ['easy', 'medium', 'hard', 'uniform']
-    bandit_scenario = BanditScenario(n_trials=1000, n_episodes=200)
+    bandit_scenario = BanditScenario(n_trials=25, n_episodes=10)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     bernoulli_results_dict = {}
     bernoulli_optimal_dict = {}
@@ -217,13 +250,13 @@ def main():
         bandit_scenario.plot_cumulative_regret(gaussian_results, gaussian_optimal, scenario, 'Gaussian')
         gaussian_results_dict[scenario] = gaussian_results
         gaussian_optimal_dict[scenario] = gaussian_optimal
-        # For heatmap: store final cumulative regret for each agent (use per-episode optimal)
+        # For heatmap: store final cumulative regret for each agent
         regret_summary['Bernoulli'].append([
-            np.mean(np.cumsum(bernoulli_optimal[:, None] - bernoulli_results[agent], axis=1)[:, -1])
+            bandit_scenario.calculate_cumulative_regret(bernoulli_results[agent], bernoulli_optimal)[:, -1].mean()
             for agent in bandit_scenario.bernoulli_agents.keys()
         ])
         regret_summary['Gaussian'].append([
-            np.mean(np.cumsum(gaussian_optimal[:, None] - gaussian_results[agent], axis=1)[:, -1])
+            bandit_scenario.calculate_cumulative_regret(gaussian_results[agent], gaussian_optimal)[:, -1].mean()
             for agent in bandit_scenario.gaussian_agents.keys()
         ])
     # Plot heatmaps
