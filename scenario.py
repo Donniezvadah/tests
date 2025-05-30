@@ -107,7 +107,7 @@ class BanditScenario:
             mean2 = -mean1
             std1 = std2 = 0.2
         elif scenario == 'hard':
-            mean1 = np.random.choice([-0.2, 0.2])
+            mean1 = np.random.choice([-0.2, 0.2]) #Hard = Close to 0
             mean2 = -mean1
             std1 = std2 = 0.3
         else:
