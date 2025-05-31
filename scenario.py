@@ -178,56 +178,79 @@ class BanditScenario:
         return cumulative_regret
 
     def plot_cumulative_regret(self, results, optimal_per_episode, scenario, env_type):
-        plt.figure(figsize=(7, 5))
-        for agent_name, rewards in results.items():
-            # Calculate cumulative regret
+        sns.set_theme(style="whitegrid")
+        color_palette = sns.color_palette("husl", len(results))
+        plt.figure(figsize=(8, 6))
+        for idx, (agent_name, rewards) in enumerate(results.items()):
             cumulative_regret = self.calculate_cumulative_regret(rewards, optimal_per_episode)
             mean_regret = cumulative_regret.mean(axis=0)
-            plt.plot(mean_regret, label=agent_name, linestyle='--')
-            
-        plt.title(f'Cumulative Regret - {env_type} - {scenario.capitalize()}')
-        plt.xlabel('Trial #')
-        plt.ylabel('Cumulative Regret')
-        plt.legend()
-        plt.grid(True, linestyle='--', alpha=0.6)
-        plt.ylim(bottom=0)  # Ensure y-axis starts at 0
+            plt.plot(mean_regret, label=agent_name, linestyle='-', linewidth=2, color=color_palette[idx])
+        plt.title(f"Cumulative Regret\n{env_type} Bandit — {scenario.capitalize()} Scenario", fontsize=18, fontweight='bold', pad=18)
+        plt.xlabel('Trial Number', fontsize=15, fontweight='bold', labelpad=10)
+        plt.ylabel('Cumulative Regret', fontsize=15, fontweight='bold', labelpad=10)
+        plt.legend(title="Agent", fontsize=12, title_fontsize=13, loc='upper left', frameon=True, fancybox=True, shadow=True)
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.ylim(bottom=0)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        sns.despine()
         plt.tight_layout()
-        plt.savefig(os.path.join(self.plot_dir, f'cumulative_regret_{env_type}_{scenario}.png'), dpi=200)
+        plt.savefig(os.path.join(self.plot_dir, f'cumulative_regret_{env_type}_{scenario}.png'), dpi=300, bbox_inches='tight')
         plt.close()
 
     def plot_heatmap(self, regret_matrix: np.ndarray, row_labels: list, col_labels: list, title: str, filename: str):
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(regret_matrix, annot=True, fmt='.2f', cmap='RdPu', xticklabels=col_labels, yticklabels=row_labels, cbar_kws={'label': 'Cumulative Regret'})
-        plt.title(title)
-        plt.xlabel('Agent')
-        plt.ylabel('Training Condition')
+        plt.figure(figsize=(8, 6))
+        ax = sns.heatmap(
+            regret_matrix,
+            annot=True,
+            fmt='.2f',
+            cmap='YlOrRd',
+            xticklabels=col_labels,
+            yticklabels=row_labels,
+            cbar_kws={'label': 'Final Cumulative Regret'},
+            linewidths=0.5,
+            linecolor='white',
+            annot_kws={"fontsize":13, "fontweight":'bold'}
+        )
+        plt.title(title, fontsize=18, fontweight='bold', pad=18)
+        plt.xlabel('Agent', fontsize=15, fontweight='bold', labelpad=10)
+        plt.ylabel('Scenario', fontsize=15, fontweight='bold', labelpad=10)
+        plt.xticks(fontsize=13, fontweight='bold', rotation=20)
+        plt.yticks(fontsize=13, fontweight='bold', rotation=0)
+        cbar = ax.collections[0].colorbar
+        cbar.ax.tick_params(labelsize=12)
+        sns.despine()
         plt.tight_layout()
-        plt.savefig(os.path.join(self.plot_dir, filename), dpi=200)
+        plt.savefig(os.path.join(self.plot_dir, filename), dpi=300, bbox_inches='tight')
         plt.close()
 
     def plot_easy_hard_subplots(self, easy_results, easy_optimal, hard_results, hard_optimal, env_type):
-        plt.figure(figsize=(12, 5))
+        sns.set_theme(style="whitegrid")
+        color_palette = sns.color_palette("husl", len(easy_results))
+        fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True, facecolor='white')
         scenarios = ['easy', 'hard']
         results_list = [easy_results, hard_results]
         optimal_list = [easy_optimal, hard_optimal]
-        
-        for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios), 1):
-            plt.subplot(1, 2, i)
-            for agent_name, rewards in results.items():
-                # Calculate cumulative regret using the proper method
+        for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios)):
+            ax = axes[i]
+            for idx, (agent_name, rewards) in enumerate(results.items()):
                 cumulative_regret = self.calculate_cumulative_regret(rewards, optimal)
                 mean_regret = cumulative_regret.mean(axis=0)
-                plt.plot(mean_regret, label=agent_name, linestyle='--')
-                
-            plt.title(f'{env_type} - {scenario.capitalize()}')
-            plt.xlabel('Trial #')
-            plt.ylabel('Cumulative Regret')
-            plt.legend()
-            plt.grid(True, linestyle='--', alpha=0.6)
-            plt.ylim(bottom=0)  # Ensure y-axis starts at 0
-            
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.png'), dpi=200)
+                ax.plot(mean_regret, label=agent_name, linestyle='-', linewidth=2, color=color_palette[idx])
+            ax.set_title(f"{env_type} Bandit\n{scenario.capitalize()} Scenario", fontsize=16, fontweight='bold', pad=14)
+            ax.set_xlabel('Trial Number', fontsize=14, fontweight='bold', labelpad=8)
+            if i == 0:
+                ax.set_ylabel('Cumulative Regret', fontsize=14, fontweight='bold', labelpad=8)
+            else:
+                ax.set_ylabel('')
+            ax.grid(True, linestyle='--', alpha=0.5)
+            ax.set_ylim(bottom=0)
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            sns.despine(ax=ax)
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, title="Agent", fontsize=13, title_fontsize=14, loc='upper center', ncol=len(easy_results), frameon=True, fancybox=True, shadow=True, bbox_to_anchor=(0.5, 1.03))
+        plt.tight_layout(rect=[0, 0, 1, 0.97])
+        plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.png'), dpi=300, bbox_inches='tight')
         plt.close()
 
 def main():

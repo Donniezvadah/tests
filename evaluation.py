@@ -70,7 +70,8 @@ class AgentBehaviorEvaluator:
         # Initialize results storage
         self.comparison_results = []
         self.agent_statistics = []
-        self.agent_states = {}  # NEW: Store states for each agent/environment
+        self.agent_states = {}  # Store states for each agent/environment
+        self.agent_actions = {}  # Store actions for each agent/environment
         
     def compute_wasserstein_distance(self, 
                                    distribution1: np.ndarray, 
@@ -232,6 +233,59 @@ class AgentBehaviorEvaluator:
                    dpi=300, bbox_inches='tight')
         plt.close()
         
+    def compute_action_distribution_over_windows(self, agent_actions: List[int], n_arms: int, window_size: int = 100) -> List[np.ndarray]:
+        """
+        Compute normalized action distributions for each sliding window.
+        Args:
+            agent_actions (List[int]): List of actions taken by an agent
+            n_arms (int): Number of possible actions
+            window_size (int): Size of the sliding window
+        Returns:
+            List[np.ndarray]: List of action distributions (probabilities) for each window
+        """
+        num_windows = len(agent_actions) // window_size
+        distributions = []
+        for i in range(num_windows):
+            start = i * window_size
+            end = start + window_size
+            window = agent_actions[start:end]
+            hist = np.zeros(n_arms)
+            for a in window:
+                hist[a] += 1
+            if hist.sum() > 0:
+                hist = hist / hist.sum()
+            distributions.append(hist)
+        return distributions
+
+    def plot_wasserstein_distance_over_windows(self, agent1_actions: List[int], agent2_actions: List[int], n_arms: int, agent1_name: str, agent2_name: str, env_name: str, window_size: int = 100):
+        """
+        Compute and plot Wasserstein distance between two agents' action distributions over sliding windows.
+        Args:
+            agent1_actions (List[int]): Actions of agent 1
+            agent2_actions (List[int]): Actions of agent 2
+            n_arms (int): Number of possible actions
+            agent1_name (str): Name of agent 1
+            agent2_name (str): Name of agent 2
+            env_name (str): Environment name
+            window_size (int): Window size
+        """
+        dists1 = self.compute_action_distribution_over_windows(agent1_actions, n_arms, window_size)
+        dists2 = self.compute_action_distribution_over_windows(agent2_actions, n_arms, window_size)
+        min_windows = min(len(dists1), len(dists2))
+        ws_distances = []
+        for i in range(min_windows):
+            ws_distances.append(wasserstein_distance(dists1[i], dists2[i]))
+        time_points = np.arange(min_windows) * window_size
+        plt.figure(figsize=(10, 5))
+        plt.plot(time_points, ws_distances, marker='o')
+        plt.title(f"Wasserstein Distance over Time\n{agent1_name} vs {agent2_name} in {env_name}")
+        plt.xlabel(f"Time Step (window size={window_size})")
+        plt.ylabel("Wasserstein Distance")
+        plt.grid(True)
+        fname = f"wasserstein_over_time_{env_name}_{agent1_name}_vs_{agent2_name}.png"
+        plt.savefig(os.path.join(self.output_dir, fname), dpi=300, bbox_inches='tight')
+        plt.close()
+
     def compute_sampling_statistics(self,
                                   agent_states: List[np.ndarray],
                                   agent_name: str) -> Dict[str, float]:
@@ -367,6 +421,7 @@ if __name__ == "__main__":
             rewards_over_time = []
             
             agent_states = []
+            agent_actions = []  # Track actions for Wasserstein window analysis
             for episode in range(n_episodes):
                 env.reset()
                 agent.init_actions(n_arms)
@@ -384,6 +439,7 @@ if __name__ == "__main__":
                     regrets.append(regret)
                     
                     agent_states.append([action, reward])
+                    agent_actions.append(action)
                 
                 rewards_over_time.append(np.mean(episode_rewards))
                 cumulative_rewards.append(np.sum(episode_rewards))
@@ -403,9 +459,10 @@ if __name__ == "__main__":
             
             evaluator.agent_statistics.append(stats)
             
-            # Store agent states for later comparison
+            # Store agent states and actions for later comparison
             key = f"{agent.name}_{env_name}"
             evaluator.agent_states[key] = agent_states
+            evaluator.agent_actions[key] = agent_actions
             
             # Generate and save exploration pattern plot
             evaluator.analyze_exploration_pattern(agent_states, key)
@@ -457,6 +514,12 @@ if __name__ == "__main__":
                 evaluator.compare_agent_states(agent1_states, agent2_states, key1, key2)
                 # Generate and save comparison plot
                 evaluator.visualize_comparison(agent1_states, agent2_states, key1, key2, title=f"{env_name} Comparison")
+                # --- Wasserstein sliding window comparison ---
+                agent1_actions = evaluator.agent_actions[key1]
+                agent2_actions = evaluator.agent_actions[key2]
+                evaluator.plot_wasserstein_distance_over_windows(
+                    agent1_actions, agent2_actions, n_arms, key1, key2, env_name, window_size=100
+                )
 
     # Save all results to Excel
     evaluator.save_results_to_csv() 
