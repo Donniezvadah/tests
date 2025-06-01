@@ -40,11 +40,16 @@ class UCBAgent(BaseAgent):
 
         # If any action hasn't been tried yet, try it
         if np.any(self._counts == 0):
-            return np.argmin(self._counts)
+            action = np.argmin(self._counts)
+            print(f"[UCB] Trying untried arm {action}. Counts: {self._counts}, Total steps: {self._total_steps}")
+            return action
 
+        # Use total steps as the sum of counts to avoid desync
+        total_steps = np.sum(self._counts)
         means = self._rewards / (self._counts + 1e-6)
-        exploration_bonus = np.sqrt(2 * np.log(self._total_steps + 1) / (self._counts + 1e-6))
+        exploration_bonus = np.sqrt(2 * np.log(total_steps + 1) / (self._counts + 1e-6))
         ucb_values = means + exploration_bonus
+        print(f"[UCB] Means: {means}, Bonus: {exploration_bonus}, UCB: {ucb_values}")
         return np.argmax(ucb_values)
 
     def update(self, action, reward):
@@ -57,7 +62,8 @@ class UCBAgent(BaseAgent):
         """
         self._rewards[action] += reward
         self._counts[action] += 1
-        self._total_steps += 1
+        self._total_steps = np.sum(self._counts)  # Always sync total_steps
+        print(f"[UCB] Updated arm {action}: reward={reward}, rewards={self._rewards}, counts={self._counts}, total_steps={self._total_steps}")
 
     @property
     def name(self):

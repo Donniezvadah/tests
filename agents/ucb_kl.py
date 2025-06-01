@@ -7,7 +7,7 @@ class KLUCBAgent(BaseAgent):
     KL-UCB agent for Bernoulli bandit problem (sublinear optimality).
     Uses the KL-UCB index for each arm.
     """
-    def __init__(self, n_arms: int, c: float = 3):
+    def __init__(self, n_arms: int, c: float = 1.5):  # Lowered default c for less aggressive exploration
         super().__init__("KL-UCB")
         self.n_arms = n_arms
         self.c = c
@@ -33,8 +33,11 @@ class KLUCBAgent(BaseAgent):
         def func(q):
             return self.kl_divergence(p_hat, q) - rhs
         try:
-            return bisect(func, lower_bound, upper_bound, xtol=1e-6)
-        except Exception:
+            idx = bisect(func, lower_bound, upper_bound, xtol=1e-6)
+            print(f"[KL-UCB] KL-UCB index for p_hat={p_hat:.4f}, n={n}, t={t}, c={c}: {idx:.4f}")
+            return idx
+        except Exception as e:
+            print(f"[KL-UCB] Bisection failed for p_hat={p_hat:.4f}, n={n}, t={t}, c={c}: {e}")
             return upper_bound
 
     def get_action(self):
@@ -48,6 +51,7 @@ class KLUCBAgent(BaseAgent):
             else:
                 p_hat = self.rewards[arm] / n
                 indices[arm] = self.kl_ucb_index(p_hat, n, t, self.c)
+        print(f"[KL-UCB] Indices: {indices}, Counts: {self.counts}, Rewards: {self.rewards}, t: {t}")
         return int(np.argmax(indices))
 
     def update(self, arm: int, reward: float):
