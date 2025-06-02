@@ -235,11 +235,15 @@ class AgentBehaviorEvaluator:
         
     def compute_action_distribution_over_windows(self, agent_actions: List[int], n_arms: int, window_size: int = 100) -> List[np.ndarray]:
         """
-        Compute normalized action distributions for each sliding window.
+        Compute normalized action distributions for each NON-OVERLAPPING window of agent actions.
+
+        For each window of `window_size` consecutive actions, compute the histogram of actions (i.e.,
+        the empirical distribution of actions in that window), normalized to sum to 1.
+
         Args:
-            agent_actions (List[int]): List of actions taken by an agent
-            n_arms (int): Number of possible actions
-            window_size (int): Size of the sliding window
+            agent_actions (List[int]): List of actions taken by an agent (action indices, e.g., [0, 1, 0, ...])
+            n_arms (int): Number of possible actions (arms)
+            window_size (int): Size of the window (number of time steps per window)
         Returns:
             List[np.ndarray]: List of action distributions (probabilities) for each window
         """
@@ -252,6 +256,7 @@ class AgentBehaviorEvaluator:
             hist = np.zeros(n_arms)
             for a in window:
                 hist[a] += 1
+            # Normalize to get a probability distribution
             if hist.sum() > 0:
                 hist = hist / hist.sum()
             distributions.append(hist)
@@ -259,26 +264,32 @@ class AgentBehaviorEvaluator:
 
     def plot_wasserstein_distance_over_windows(self, agent1_actions: List[int], agent2_actions: List[int], n_arms: int, agent1_name: str, agent2_name: str, env_name: str, window_size: int = 100):
         """
-        Compute and plot Wasserstein distance between two agents' action distributions over sliding windows.
+        Compute and plot Wasserstein distance between two agents' action distributions over NON-OVERLAPPING windows.
+
+        For each window (e.g., t=1..100, t=101..200, ...), compute the empirical action distribution
+        for each agent, then compute the Wasserstein distance between these distributions. Repeat for all windows.
+        Plot the Wasserstein distance as a function of time (window start).
+
         Args:
-            agent1_actions (List[int]): Actions of agent 1
-            agent2_actions (List[int]): Actions of agent 2
-            n_arms (int): Number of possible actions
+            agent1_actions (List[int]): Actions of agent 1 (as a list of action indices)
+            agent2_actions (List[int]): Actions of agent 2 (as a list of action indices)
+            n_arms (int): Number of possible actions (arms)
             agent1_name (str): Name of agent 1
             agent2_name (str): Name of agent 2
             env_name (str): Environment name
-            window_size (int): Window size
+            window_size (int): Window size (number of time steps per window)
         """
         dists1 = self.compute_action_distribution_over_windows(agent1_actions, n_arms, window_size)
         dists2 = self.compute_action_distribution_over_windows(agent2_actions, n_arms, window_size)
         min_windows = min(len(dists1), len(dists2))
         ws_distances = []
         for i in range(min_windows):
+            # Compute Wasserstein distance between the two action distributions for this window
             ws_distances.append(wasserstein_distance(dists1[i], dists2[i]))
         time_points = np.arange(min_windows) * window_size
         plt.figure(figsize=(10, 5))
         plt.plot(time_points, ws_distances, marker='o')
-        plt.title(f"Wasserstein Distance over Time\n{agent1_name} vs {agent2_name} in {env_name}")
+        plt.title(f"Wasserstein Distance of Action Distributions over Time\n{agent1_name} vs {agent2_name} in {env_name}")
         plt.xlabel(f"Time Step (window size={window_size})")
         plt.ylabel("Wasserstein Distance")
         plt.grid(True)

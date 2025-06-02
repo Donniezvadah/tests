@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional
 import seaborn as sns
@@ -20,7 +21,7 @@ class BanditScenario:
     A class to manage different bandit scenarios and evaluate agent performance.
     """
     
-    def __init__(self, n_arms: int = 2, n_trials: int = 100, n_episodes: int = 100):
+    def __init__(self, n_arms: int = 2, n_trials: int = 100, n_episodes: int = 100, random_seed: Optional[int] = None):
         """
         Initialize the bandit scenario.
         
@@ -28,10 +29,15 @@ class BanditScenario:
             n_arms: Number of arms in the bandit
             n_trials: Number of trials per episode
             n_episodes: Number of episodes to run
+            random_seed: Seed for reproducibility
         """
         self.n_arms = n_arms
         self.n_trials = n_trials
         self.n_episodes = n_episodes
+        self.random_seed = random_seed
+        if random_seed is not None:
+            np.random.seed(random_seed)
+            random.seed(random_seed)
         
         # Initialize agents for Bernoulli bandit
         self.bernoulli_agents = {
@@ -178,25 +184,69 @@ class BanditScenario:
         return cumulative_regret
 
     def plot_cumulative_regret(self, results, optimal_per_episode, scenario, env_type):
-        sns.set_theme(style="whitegrid")
-        color_palette = sns.color_palette("husl", len(results))
+        import matplotlib as mpl
+        # Agent color and style mapping from plot_utils.py
+        agent_styles = {
+            'Epsilon-Greedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
+            'UCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
+            'Thompson Sampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
+            'LLM': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5},
+            'GaussianEpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
+            'GaussianUCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
+            'GaussianThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
+        }
+        # Map scenario agent names to base names for color
+        def get_base_name(agent_name):
+            if 'Epsilon' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianEpsilonGreedy'
+            if 'Epsilon' in agent_name:
+                return 'Epsilon-Greedy'
+            if 'UCB' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianUCB'
+            if 'UCB' in agent_name:
+                return 'UCB'
+            if 'Thompson' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianThompsonSampling'
+            if 'Thompson' in agent_name:
+                return 'Thompson Sampling'
+            if 'LLM' in agent_name:
+                return 'LLM'
+            return agent_name
         plt.figure(figsize=(8, 6))
-        for idx, (agent_name, rewards) in enumerate(results.items()):
+        for agent_name, rewards in results.items():
+            base_name = get_base_name(agent_name)
+            clean_label = self._get_clean_label(agent_name)
+            style = agent_styles.get(base_name, {'color': '#7f7f7f', 'linestyle': '-', 'linewidth': 2})
             cumulative_regret = self.calculate_cumulative_regret(rewards, optimal_per_episode)
             mean_regret = cumulative_regret.mean(axis=0)
-            plt.plot(mean_regret, label=agent_name, linestyle='-', linewidth=2, color=color_palette[idx])
-        plt.title(f"Cumulative Regret\n{env_type} Bandit — {scenario.capitalize()} Scenario", fontsize=18, fontweight='bold', pad=18)
+            plt.plot(mean_regret, label=clean_label, color=style['color'], linestyle=style['linestyle'], linewidth=style['linewidth'])
+        # No title, only legend below plot
         plt.xlabel('Trial Number', fontsize=15, fontweight='bold', labelpad=10)
         plt.ylabel('Cumulative Regret', fontsize=15, fontweight='bold', labelpad=10)
-        plt.legend(title="Agent", fontsize=12, title_fontsize=13, loc='upper left', frameon=True, fancybox=True, shadow=True)
+        # Make scenario name Title Case for legend
+        scenario_title = scenario.capitalize()
+        leg = plt.legend(
+            title=f"Agent ({scenario_title})",
+            fontsize=16, title_fontsize=18, loc='lower center', bbox_to_anchor=(0.5, -0.28),
+            frameon=True, fancybox=True, shadow=True, ncol=2,
+            borderaxespad=0.8,
+            labelcolor='black'
+        )
+        plt.setp(leg.get_title(), fontweight='bold')
+        for text in leg.get_texts():
+            text.set_fontweight('bold')
+            text.set_fontsize(15)
+        # Add a subtitle/annotation under the legend for decoding
+        plt.gcf().text(0.5, -0.17, "Legend: e-greedy = Epsilon-Greedy, TS = Thompson Sampling, LLM = Language Model", ha='center', fontsize=13, color='dimgray', fontweight='bold')
         plt.grid(True, linestyle='--', alpha=0.5)
         plt.ylim(bottom=0)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
+        plt.xticks(fontsize=12, fontweight='bold')
+        plt.yticks(fontsize=12, fontweight='bold')
         sns.despine()
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.plot_dir, f'cumulative_regret_{env_type}_{scenario}.png'), dpi=300, bbox_inches='tight')
+        plt.tight_layout(rect=[0, 0, 1, 0.88])
+        plt.savefig(os.path.join(self.plot_dir, f'cumulative_regret_{env_type}_{scenario}.pdf'), bbox_inches='tight')
         plt.close()
+
 
     def plot_heatmap(self, regret_matrix: np.ndarray, row_labels: list, col_labels: list, title: str, filename: str):
         plt.figure(figsize=(8, 6))
@@ -221,23 +271,67 @@ class BanditScenario:
         cbar.ax.tick_params(labelsize=12)
         sns.despine()
         plt.tight_layout()
-        plt.savefig(os.path.join(self.plot_dir, filename), dpi=300, bbox_inches='tight')
+        plt.savefig(os.path.join(self.plot_dir, filename.replace('.png', '.pdf')), bbox_inches='tight')
         plt.close()
 
+    def _get_clean_label(self, agent_name):
+        if 'Gaussian' in agent_name and 'Epsilon' in agent_name:
+            return 'Gaussian e-greedy'
+        if 'Gaussian' in agent_name and 'Thompson' in agent_name:
+            return 'Gaussian TS'
+        if 'Gaussian' in agent_name and 'UCB' in agent_name:
+            return 'Gaussian UCB'
+        if agent_name == 'Epsilon-Greedy':
+            return 'e-greedy'
+        if agent_name == 'Thompson Sampling':
+            return 'TS'
+        if agent_name == 'UCB':
+            return 'UCB'
+        if agent_name == 'LLM':
+            return 'LLM'
+        return agent_name
+
     def plot_easy_hard_subplots(self, easy_results, easy_optimal, hard_results, hard_optimal, env_type):
-        sns.set_theme(style="whitegrid")
-        color_palette = sns.color_palette("husl", len(easy_results))
+        import matplotlib as mpl
+        agent_styles = {
+            'Epsilon-Greedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
+            'UCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
+            'Thompson Sampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
+            'LLM': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5},
+            'GaussianEpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
+            'GaussianUCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
+            'GaussianThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
+        }
+        def get_base_name(agent_name):
+            if 'Epsilon' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianEpsilonGreedy'
+            if 'Epsilon' in agent_name:
+                return 'Epsilon-Greedy'
+            if 'UCB' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianUCB'
+            if 'UCB' in agent_name:
+                return 'UCB'
+            if 'Thompson' in agent_name and 'Gaussian' in agent_name:
+                return 'GaussianThompsonSampling'
+            if 'Thompson' in agent_name:
+                return 'Thompson Sampling'
+            if 'LLM' in agent_name:
+                return 'LLM'
+            return agent_name
         fig, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True, facecolor='white')
         scenarios = ['easy', 'hard']
         results_list = [easy_results, hard_results]
         optimal_list = [easy_optimal, hard_optimal]
         for i, (results, optimal, scenario) in enumerate(zip(results_list, optimal_list, scenarios)):
             ax = axes[i]
-            for idx, (agent_name, rewards) in enumerate(results.items()):
+            for agent_name, rewards in results.items():
+                base_name = get_base_name(agent_name)
+                clean_label = self._get_clean_label(agent_name)
+                style = agent_styles.get(base_name, {'color': '#7f7f7f', 'linestyle': '-', 'linewidth': 2})
                 cumulative_regret = self.calculate_cumulative_regret(rewards, optimal)
                 mean_regret = cumulative_regret.mean(axis=0)
-                ax.plot(mean_regret, label=agent_name, linestyle='-', linewidth=2, color=color_palette[idx])
-            ax.set_title(f"{env_type} Bandit\n{scenario.capitalize()} Scenario", fontsize=16, fontweight='bold', pad=14)
+                ax.plot(mean_regret, label=clean_label, color=style['color'], linestyle=style['linestyle'], linewidth=style['linewidth'])
+            # No subplot title
             ax.set_xlabel('Trial Number', fontsize=14, fontweight='bold', labelpad=8)
             if i == 0:
                 ax.set_ylabel('Cumulative Regret', fontsize=14, fontweight='bold', labelpad=8)
@@ -248,14 +342,30 @@ class BanditScenario:
             ax.tick_params(axis='both', which='major', labelsize=12)
             sns.despine(ax=ax)
         handles, labels = axes[0].get_legend_handles_labels()
-        fig.legend(handles, labels, title="Agent", fontsize=13, title_fontsize=14, loc='upper center', ncol=len(easy_results), frameon=True, fancybox=True, shadow=True, bbox_to_anchor=(0.5, 1.03))
-        plt.tight_layout(rect=[0, 0, 1, 0.97])
-        plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.png'), dpi=300, bbox_inches='tight')
+        # Legend below plot, very bold, add scenario info
+        legend_title = f"Agent (Easy & Hard)"
+        leg = fig.legend(
+            handles, labels, title=legend_title, fontsize=16, title_fontsize=18,
+            loc='lower center', bbox_to_anchor=(0.5, -0.18), ncol=len(handles),
+            frameon=True, fancybox=True, shadow=True, borderaxespad=0.8, labelcolor='black')
+        plt.setp(leg.get_title(), fontweight='bold')
+        for text in leg.get_texts():
+            text.set_fontweight('bold')
+            text.set_fontsize(15)
+        # Add a subtitle/annotation under the legend for decoding
+        fig.text(0.5, -0.10, "Legend: e-greedy = Epsilon-Greedy, TS = Thompson Sampling, LLM = Language Model", ha='center', fontsize=13, color='dimgray', fontweight='bold')
+        plt.tight_layout(rect=[0, 0, 1, 0.88])
+        plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.pdf'), bbox_inches='tight')
         plt.close()
 
+
 def main():
+    import random
     scenarios = ['easy', 'medium', 'hard', 'uniform']
-    bandit_scenario = BanditScenario(n_trials=25, n_episodes=10)
+    seed = 42
+    np.random.seed(seed)
+    random.seed(seed)
+    bandit_scenario = BanditScenario(n_trials=25, n_episodes=25, random_seed=seed)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     bernoulli_results_dict = {}
     bernoulli_optimal_dict = {}
@@ -299,3 +409,5 @@ def main():
 
 if __name__ == "__main__":
     main() 
+    
+    

@@ -112,15 +112,18 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
                                alpha=0.13, 
                                linewidth=0)
                 
-        # Enhanced legend with frame, shadow, and company look
-        plt.legend(frameon=True, fancybox=True, shadow=True, loc='upper left', fontsize=13, title="Agent", title_fontsize=14)
-        
+        # Legend removed as per user request
+        # Decoding subtitle remains (optional for context)
+        plt.gcf().text(0.5, -0.17, "Legend: e-greedy = Epsilon-Greedy, TS = Thompson Sampling, LLM = Language Model", ha='center', fontsize=13, color='dimgray', fontweight='bold')
+
         plt.xlabel('Steps', fontsize=15, fontweight='bold', labelpad=8)
         plt.ylabel('Cumulative Regret', fontsize=15, fontweight='bold', labelpad=8)
         plt.title(f'Average Cumulative Regret\n{env_name} Environment', fontsize=18, fontweight='bold', pad=14)
+        plt.xticks(fontsize=13, fontweight='bold')
+        plt.yticks(fontsize=13, fontweight='bold')
         plt.grid(True, linestyle='--', alpha=0.4)
-        plt.tight_layout(rect=[0, 0, 1, 0.98])
-        
+        plt.tight_layout(rect=[0, 0, 1, 0.88])
+
         # Add subtle company branding (e.g., logo) if available
         logo_path = config['paths'].get('company_logo', None)
         if logo_path and os.path.exists(logo_path):
@@ -129,16 +132,15 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
             imagebox = OffsetImage(arr_logo, zoom=0.08, alpha=0.8)
             ab = AnnotationBbox(imagebox, (0.96, 0.94), frameon=False, xycoords='axes fraction', box_alignment=(1,1))
             plt.gca().add_artist(ab)
-        
+
         # Create plots directory if it doesn't exist
         plots_dir = config['paths']['plots_dir']
         os.makedirs(plots_dir, exist_ok=True)
-        
-        # Save plots with environment name in filename
+
+        # Save plot as PDF only, highest quality
         base_filename = f"regret_with_ci_{env_name.lower()}"
-        print(f"Saving plots to {plots_dir}")
-        plt.savefig(os.path.join(plots_dir, f"{base_filename}.png"), dpi=400, bbox_inches='tight', transparent=False)
-        plt.savefig(os.path.join(plots_dir, f"{base_filename}.pdf"), bbox_inches='tight', transparent=False)
+        print(f"Saving plot to {plots_dir}")
+        plt.savefig(os.path.join(plots_dir, f"{base_filename}.pdf"), bbox_inches='tight', transparent=False, dpi=600)
         plt.close()
         print("Plotting completed successfully")
         
