@@ -112,9 +112,15 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
                                alpha=0.13, 
                                linewidth=0)
                 
-        # Legend removed as per user request
-        # Decoding subtitle remains (optional for context)
-        plt.gcf().text(0.5, -0.17, "Legend: e-greedy = Epsilon-Greedy, TS = Thompson Sampling, LLM = Language Model", ha='center', fontsize=13, color='dimgray', fontweight='bold')
+        # Enhanced legend: below plot, bold, clear, with decoding subtitle
+        leg = plt.legend(
+            frameon=True, fancybox=True, shadow=True,
+            loc='lower center', bbox_to_anchor=(0.5, -0.28),
+            fontsize=16, title="Agent", title_fontsize=18, ncol=2, borderaxespad=0.8, labelcolor='black')
+        plt.setp(leg.get_title(), fontweight='bold')
+        for text in leg.get_texts():
+            text.set_fontweight('bold')
+            text.set_fontsize(15)
 
         plt.xlabel('Steps', fontsize=15, fontweight='bold', labelpad=8)
         plt.ylabel('Cumulative Regret', fontsize=15, fontweight='bold', labelpad=8)
