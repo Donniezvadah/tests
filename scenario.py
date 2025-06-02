@@ -365,7 +365,7 @@ def main():
     seed = 42
     np.random.seed(seed)
     random.seed(seed)
-    bandit_scenario = BanditScenario(n_trials=25, n_episodes=25, random_seed=seed)
+    bandit_scenario = BanditScenario(n_trials=25, n_episodes=20, random_seed=101)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     bernoulli_results_dict = {}
     bernoulli_optimal_dict = {}
