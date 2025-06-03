@@ -1,7 +1,9 @@
 experiment:
   output_dir: output
-  n_steps: 25
-  n_runs: 50
+  delays: [1, 2, 3, 4, 5]
+  n_arms: 5
+  n_steps: 20  # time horizon
+  n_runs: 2    # number of samples
   seed: 42
 seeds:
   numpy: 42

@@ -353,7 +353,6 @@ class BanditScenario:
             text.set_fontweight('bold')
             text.set_fontsize(15)
         # Add a subtitle/annotation under the legend for decoding
-        fig.text(0.5, -0.10, "Legend: e-greedy = Epsilon-Greedy, TS = Thompson Sampling, LLM = Language Model", ha='center', fontsize=13, color='dimgray', fontweight='bold')
         plt.tight_layout(rect=[0, 0, 1, 0.88])
         plt.savefig(os.path.join(self.plot_dir, f'{env_type.lower()}_easy_hard_subplot.pdf'), bbox_inches='tight')
         plt.close()
@@ -365,7 +364,7 @@ def main():
     seed = 42
     np.random.seed(seed)
     random.seed(seed)
-    bandit_scenario = BanditScenario(n_trials=25, n_episodes=20, random_seed=101)
+    bandit_scenario = BanditScenario(n_trials=10, n_episodes=2, random_seed=101)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     bernoulli_results_dict = {}
     bernoulli_optimal_dict = {}

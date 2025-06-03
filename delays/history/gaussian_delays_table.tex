@@ -1,0 +1,14 @@
+\begin{table}[htbp]
+\caption{Cumulative regret (mean $\pm$ std) for each agent and feedback delay ($\delta$) in the Gaussian bandit.}
+\label{tab:gaussian_delays}
+\begin{tabular}{lcccccc}
+\toprule
+Delay $\delta$ & 1 & 2 & 3 & 5 & 10 & 20 \\
+\midrule
+\textbf{Epsilon-Greedy} & 10.69 $\pm$ 8.57 & 13.02 $\pm$ 12.05 & 10.14 $\pm$ 9.99 & 15.22 $\pm$ 10.52 & 14.83 $\pm$ 12.1 & 18.91 $\pm$ 4.39 \\
+\textbf{UCB} & 13.19 $\pm$ 7.72 & 13.7 $\pm$ 7.09 & 10.07 $\pm$ 9.39 & 15.08 $\pm$ 6.21 & 20.55 $\pm$ 4.53 & 24.91 $\pm$ 3.99 \\
+\textbf{Thompson Sampling} & 14.81 $\pm$ 8.77 & 12.76 $\pm$ 8.85 & 13.47 $\pm$ 10.3 & 8.48 $\pm$ 6.96 & 9.24 $\pm$ 11.47 & 10.58 $\pm$ 11.07 \\
+\textbf{LLM} & 10.66 $\pm$ 11.74 & 9.8 $\pm$ 8.28 & 12.76 $\pm$ 6.52 & 15.14 $\pm$ 6.67 & 21.17 $\pm$ 1.84 & 24.42 $\pm$ 1.91 \\
+\bottomrule
+\end{tabular}
+\end{table}

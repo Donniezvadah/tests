@@ -1,7 +1,0 @@
-defaults:
-  - experiment: experiment
-  - agent: epsilon_greedy
-  - environment: bernoulli_env 
-paths:
-  plots_dir: plots
-  output_dir: output 
