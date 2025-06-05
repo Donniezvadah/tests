@@ -4,33 +4,31 @@ import numpy as np
 import matplotlib as mpl
 import seaborn as sns
 
-# Set global matplotlib style for company quality plots
+# Set global matplotlib style for publication quality plots
 mpl.rcParams.update({
-    'font.family': 'DejaVu Sans',  # Use a clean, professional sans-serif font
-    'font.size': 14,
-    'axes.titlesize': 18,
-    'axes.labelsize': 15,
+    'font.family': 'serif',
+    'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif', 'serif'],
+    'axes.labelsize': 16,
+    'axes.titlesize': 16,
     'axes.labelweight': 'bold',
-    'axes.edgecolor': '#333F4B',
+    'axes.titleweight': 'bold',
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 14,
+    'legend.title_fontsize': 15,
+    'figure.titlesize': 16,
+    'pdf.fonttype': 42,
+    'ps.fonttype': 42,
+    'axes.edgecolor': 'gray',
     'axes.linewidth': 1.2,
-    'axes.grid': True,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'grid.color': 'gray',
+    'grid.linestyle': ':',
     'grid.alpha': 0.3,
-    'grid.linestyle': '--',
-    'legend.fontsize': 13,
-    'legend.title_fontsize': 14,
-    'xtick.labelsize': 13,
-    'ytick.labelsize': 13,
-    'xtick.direction': 'out',
-    'ytick.direction': 'out',
-    'figure.dpi': 150,
-    'savefig.dpi': 400,
-    'figure.facecolor': 'white',
-    'axes.facecolor': 'white',
-    'figure.autolayout': True,
-    'lines.solid_capstyle': 'round',
-    'lines.solid_joinstyle': 'round',
 })
-sns.set_theme(style="whitegrid", font_scale=1.2)
 
 # Helper to get base agent name for color mapping
 # (e.g., EpsilonGreedy from EpsilonGreedy(epsilon=0.1, bernoulli))
@@ -49,26 +47,26 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
         env_name: Name of the environment (for file naming)
     """
     try:
-        plt.figure(figsize=(13, 8))  # Slightly wider for company slides
+        plt.figure(figsize=(13, 8))
         
         # Define colors and line styles for different agent types
         agent_styles = {
-            # Base agents
-            'EpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
-            'UCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
-            'ThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
-            'KL-UCB': {'color': '#d62728', 'linestyle': '-', 'linewidth': 2},
+            # Base agents with publication-style labels
+            'EpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2, 'label': r'$\epsilon$-greedy'},
+            'UCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2, 'label': 'UCB'},
+            'ThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2, 'label': 'TS'},
+            'KL-UCB': {'color': '#d62728', 'linestyle': '-', 'linewidth': 2, 'label': 'KL-UCB'},
             # LLM agents (red dotted lines)
-            'LLM': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5},
-            'LLMV2': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5},
-            # Gaussian variants (solid lines with same colors as base agents)
-            'GaussianEpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2},
-            'GaussianUCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2},
-            'GaussianThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2},
+            'LLM': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'},
+            'LLMV2': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'},
+            # Gaussian variants with same colors as base agents
+            'GaussianEpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2, 'label': r'$\epsilon$-greedy'},
+            'GaussianUCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2, 'label': 'UCB'},
+            'GaussianThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2, 'label': 'TS'},
         }
         
         # Fallback style for unknown agents
-        default_style = {'color': '#7f7f7f', 'linestyle': '-', 'linewidth': 1.5}
+        default_style = {'color': '#7f7f7f', 'linestyle': '-', 'linewidth': 1.5, 'label': 'Unknown'}
         
         # Create a set to track which agent names we've already added to the legend
         legend_handles = {}
@@ -84,7 +82,7 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
             if 'LLM' in agent.name or 'llm' in agent.name.lower():
                 style = agent_styles.get('LLM', default_style)
                 # Force red color and dotted line for all LLM agents
-                style = {'color': 'red', 'linestyle': ':', 'linewidth': 2.5}
+                style = {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'}
             
             avg_regret = np.mean(regret[agent.name], axis=0)
             print(f"Average regret shape: {avg_regret.shape}")
@@ -92,7 +90,7 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
             # Plot the average regret curve
             print(f"Plotting average regret curve for {agent.name}")
             line, = plt.plot(avg_regret, 
-                          label=agent.name,
+                          label=style['label'],  # Use the standardized label
                           color=style['color'],
                           linestyle=style['linestyle'],
                           linewidth=style['linewidth'],
@@ -112,22 +110,22 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
                                alpha=0.13, 
                                linewidth=0)
                 
-        # Enhanced legend: below plot, bold, clear, with decoding subtitle
+        # Enhanced legend: below plot, bold, clear
         leg = plt.legend(
             frameon=True, fancybox=True, shadow=True,
             loc='lower center', bbox_to_anchor=(0.5, -0.28),
-            fontsize=16, title="Agent", title_fontsize=18, ncol=2, borderaxespad=0.8, labelcolor='black')
+            fontsize=14, title="Agent", title_fontsize=15, ncol=2, borderaxespad=0.8, labelcolor='black')
         plt.setp(leg.get_title(), fontweight='bold')
         for text in leg.get_texts():
             text.set_fontweight('bold')
-            text.set_fontsize(15)
+            text.set_fontsize(14)
 
-        plt.xlabel('Steps', fontsize=15, fontweight='bold', labelpad=8)
-        plt.ylabel('Cumulative Regret', fontsize=15, fontweight='bold', labelpad=8)
-        plt.title(f'Average Cumulative Regret\n{env_name} Environment', fontsize=18, fontweight='bold', pad=14)
-        plt.xticks(fontsize=13, fontweight='bold')
-        plt.yticks(fontsize=13, fontweight='bold')
-        plt.grid(True, linestyle='--', alpha=0.4)
+        plt.xlabel('Steps', fontsize=16, fontweight='bold', labelpad=8)
+        plt.ylabel('Cumulative Regret', fontsize=16, fontweight='bold', labelpad=8)
+        plt.title(f'Average Cumulative Regret\n{env_name} Environment', fontsize=16, fontweight='bold', pad=14)
+        plt.xticks(fontsize=14, fontweight='bold')
+        plt.yticks(fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle=':', alpha=0.3)
         plt.tight_layout(rect=[0, 0, 1, 0.88])
 
         # Add subtle company branding (e.g., logo) if available

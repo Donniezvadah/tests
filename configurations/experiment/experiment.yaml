@@ -2,7 +2,7 @@ experiment:
   output_dir: output
   delays: [1, 2, 3, 4, 5]
   n_arms: 5
-  n_steps: 20  # time horizon
+  n_steps: 10  # time horizon
   n_runs: 2    # number of samples
   seed: 42
 seeds:

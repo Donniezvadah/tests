@@ -1,0 +1,32 @@
+paths:
+  plots_dir: "plots"
+  company_logo: null  # Set to path if you have a logo
+
+plotting:
+  dpi: 600
+  format: "pdf"
+  style: "publication"
+  font_family: "serif"
+  font_size: 14
+  title_size: 16
+  label_size: 16
+  legend_size: 14
+  grid_alpha: 0.3
+  confidence_alpha: 0.13
+
+agents:
+  colors:
+    epsilon_greedy: "#1f77b4"
+    ucb: "#ff7f0e"
+    thompson: "#2ca02c"
+    llm: "red"
+  line_styles:
+    epsilon_greedy: "-"
+    ucb: "-"
+    thompson: "-"
+    llm: ":"
+  line_widths:
+    epsilon_greedy: 2
+    ucb: 2
+    thompson: 2
+    llm: 2.5 
