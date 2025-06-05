@@ -361,10 +361,10 @@ class BanditScenario:
 def main():
     import random
     scenarios = ['easy', 'medium', 'hard', 'uniform']
-    seed = 42
+    seed = 101
     np.random.seed(seed)
     random.seed(seed)
-    bandit_scenario = BanditScenario(n_trials=10, n_episodes=2, random_seed=101)
+    bandit_scenario = BanditScenario(n_trials=50, n_episodes=10, random_seed=101)
     regret_summary = {'Bernoulli': [], 'Gaussian': []}
     bernoulli_results_dict = {}
     bernoulli_optimal_dict = {}

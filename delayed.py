@@ -93,9 +93,9 @@ def plot_delayed_regrets(env_name, agents, delays, T, runs, n_arms):
     for idx, (name, regret_list) in enumerate(regrets.items()):
         plt.plot(delays, regret_list, marker=markers[idx % len(markers)], label=name, linewidth=2.5, markersize=11)
     plt.xlabel('Delay $\\delta$', fontsize=17, fontweight='bold')
-    plt.ylabel('Cumulative Regret', fontsize=17, fontweight='bold')
-    plt.title(f'Impact of Delayed Feedback on {env_name} Bandit', fontsize=20, fontweight='bold', pad=18)
-    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.ylabel('$R(t)$', fontsize=17, fontweight='bold')
+    # plt.title(f'Impact of Delayed Feedback on {env_name} Bandit', fontsize=20, fontweight='bold', pad=18)
+    # plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.18), ncol=2, frameon=False, fontsize=14)
     plt.xticks(delays, fontsize=15)
     plt.yticks(fontsize=15)
