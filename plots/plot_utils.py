@@ -53,6 +53,9 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
         def _get_clean_label(agent_name):
             # Standardize legend labels for publication
             # Gaussian variants use same label as base
+            lower_name = agent_name.lower()
+            if 'kl_ucb' in lower_name or 'kl-ucb' in lower_name or 'klucb' in lower_name:
+                return 'KL_UCB'
             if 'Epsilon' in agent_name:
                 return r'$\epsilon$-greedy'
             if 'Thompson' in agent_name:
@@ -79,7 +82,8 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
             r'$\epsilon$-greedy': '#0173b2',  # Blue
             'UCB': '#de8f05',              # Orange
             'TS': '#029e73',               # Green
-            'LLM': '#d55e00'               # Red
+            'LLM': '#FF0000',              # Pure Red
+            'KL_UCB': '#000000'            # Pure Black
         }
         palette = sns.color_palette("colorblind")  # Fallback palette for any agent not in color_map
 

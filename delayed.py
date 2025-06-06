@@ -195,9 +195,9 @@ def plot_delayed_regrets(env_name, agents, delays, T, runs, n_arms):
 
 def main():
     n_arms = 5
-    T = 5
-    runs = 2
-    delays = [1, 2, 5]
+    T = 20
+    runs = 20
+    delays = [1, 2,4, 5,10,20]
     # Use agent class references for clarity in plot_delayed_regrets
     bernoulli_agents = {
         'Epsilon-Greedy': EpsilonGreedyAgent,
