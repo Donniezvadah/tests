@@ -49,21 +49,54 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
     try:
         plt.figure(figsize=(13, 8))
         
-        # Define colors and line styles for different agent types
-        agent_styles = {
-            # Base agents with publication-style labels
-            'EpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2, 'label': r'$\epsilon$-greedy'},
-            'UCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2, 'label': 'UCB'},
-            'ThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2, 'label': 'TS'},
-            'KL-UCB': {'color': '#d62728', 'linestyle': '-', 'linewidth': 2, 'label': 'KL-UCB'},
-            # LLM agents (red dotted lines)
-            'LLM': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'},
-            'LLMV2': {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'},
-            # Gaussian variants with same colors as base agents
-            'GaussianEpsilonGreedy': {'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2, 'label': r'$\epsilon$-greedy'},
-            'GaussianUCB': {'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2, 'label': 'UCB'},
-            'GaussianThompsonSampling': {'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2, 'label': 'TS'},
+        # Helper function for legend labels
+        def _get_clean_label(agent_name):
+            # Standardize legend labels for publication
+            # Gaussian variants use same label as base
+            if 'Epsilon' in agent_name:
+                return r'$\epsilon$-greedy'
+            if 'Thompson' in agent_name:
+                return 'TS'
+            if 'UCB' in agent_name:
+                return 'UCB'
+            if agent_name == 'LLM' or agent_name == 'LLMV2':
+                return 'LLM'
+            return agent_name
+
+        # Color mapping - keys should match output of _get_clean_label
+        color_map = {
+            r'$\epsilon$-greedy': '#0173b2',  # Blue
+            'UCB': '#de8f05',              # Orange
+            'TS': '#029e73',               # Green
+            'LLM': '#d55e00',              # Red
+            r'Gaussian $\epsilon$-greedy': '#0173b2',  # Same color as base
+            'Gaussian UCB': '#de8f05',     # Same color as base
+            'Gaussian TS': '#029e73'       # Same color as base
         }
+
+        # Color mapping - keys should match output of _get_clean_label
+        color_map = {
+            r'$\epsilon$-greedy': '#0173b2',  # Blue
+            'UCB': '#de8f05',              # Orange
+            'TS': '#029e73',               # Green
+            'LLM': '#d55e00'               # Red
+        }
+        palette = sns.color_palette("colorblind")  # Fallback palette for any agent not in color_map
+
+        # Define styles based on clean labels
+        agent_styles = {}
+        for agent in agents:
+            base_name = get_base_agent_name(agent)
+            clean_label = _get_clean_label(base_name)
+            color = color_map.get(clean_label, palette[len(agent_styles) % len(palette)])
+            # Always use solid line for LLM
+            linestyle = '-'
+            agent_styles[base_name] = {
+                'color': color,
+                'linestyle': linestyle,  # Solid line for all agents, including LLM
+                'linewidth': 1.2,  # Thin lines
+                'label': clean_label
+            }
         
         # Fallback style for unknown agents
         default_style = {'color': '#7f7f7f', 'linestyle': '-', 'linewidth': 1.5, 'label': 'Unknown'}
@@ -78,11 +111,7 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
             # Get style for this agent, or use default if not found
             style = agent_styles.get(base_name, default_style)
             
-            # For LLM agents, use red dotted style
-            if 'LLM' in agent.name or 'llm' in agent.name.lower():
-                style = agent_styles.get('LLM', default_style)
-                # Force red color and dotted line for all LLM agents
-                style = {'color': 'red', 'linestyle': ':', 'linewidth': 2.5, 'label': 'LLM'}
+
             
             avg_regret = np.mean(regret[agent.name], axis=0)
             print(f"Average regret shape: {avg_regret.shape}")
@@ -111,20 +140,18 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
                                linewidth=0)
                 
         # Enhanced legend: below plot, bold, clear
-        leg = plt.legend(
-            frameon=True, fancybox=True, shadow=True,
-            loc='lower center', bbox_to_anchor=(0.5, -0.28),
-            fontsize=14, title="Agent", title_fontsize=15, ncol=2, borderaxespad=0.8, labelcolor='black')
-        plt.setp(leg.get_title(), fontweight='bold')
-        for text in leg.get_texts():
-            text.set_fontweight('bold')
-            text.set_fontsize(14)
-
-        plt.xlabel('Steps', fontsize=16, fontweight='bold', labelpad=8)
-        plt.ylabel('Cumulative Regret', fontsize=16, fontweight='bold', labelpad=8)
-        plt.title(f'Average Cumulative Regret\n{env_name} Environment', fontsize=16, fontweight='bold', pad=14)
+        plt.xlabel('$t$', fontsize=16, fontweight='bold', labelpad=8)
+        plt.ylabel('$R(t)$', fontsize=16, fontweight='bold', labelpad=8)
+        # Remove plot title
+        # plt.title(f'Average Cumulative Regret\n{env_name} Environment', fontsize=16, fontweight='bold', pad=14)
         plt.xticks(fontsize=14, fontweight='bold')
         plt.yticks(fontsize=14, fontweight='bold')
+
+        # Legend: below plot, centered, single row, no box, clean style
+        plt.legend(
+            loc='lower center', bbox_to_anchor=(0.5, -0.25), ncol=len(agents),
+            frameon=False, handletextpad=0.7, columnspacing=1.2, borderaxespad=0.3
+        )
         plt.grid(True, linestyle=':', alpha=0.3)
         plt.tight_layout(rect=[0, 0, 1, 0.88])
 

@@ -143,12 +143,13 @@ def plot_delayed_regrets(env_name, agents, delays, T, runs, n_arms):
 
     # Plotting
     plt.figure(figsize=(9, 6))
-    # markers = ['o', 's', 'D', '^', 'v', 'P', 'X'] # Markers removed
+    markers = ['o', 's', 'D', '^', 'v', 'P', 'X']  # Distinct markers for each agent
 
     for idx, (name, regret_list) in enumerate(regrets.items()):
         clean_label = _get_clean_label(name)
         color = color_map.get(clean_label, palette[idx % len(palette)]) # Get specific color or fallback
-        plt.plot(delays, regret_list, label=clean_label, linewidth=1.5, color=color) # Markers removed, markersize removed
+        marker = markers[idx % len(markers)]
+        plt.plot(delays, regret_list, label=clean_label, linewidth=1.5, color=color, marker=marker, markersize=7)
 
     plt.xlabel('Delay $\\delta$', fontweight="bold") # X-axis label style updated
     plt.ylabel('$R(t)$', fontweight="bold") # Y-axis label style updated
