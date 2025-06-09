@@ -1,16 +1,3 @@
-"""
-Evaluation module for comparing agent behaviors using Wasserstein metric.
-
-This module implements various methods to quantify and compare the behavior of different agents
-using the Wasserstein metric (also known as Earth Mover's Distance). The Wasserstein metric
-provides a way to measure the distance between probability distributions, which is particularly
-useful for comparing agent behaviors and exploration patterns.
-
-References:
-- Wasserstein metric: https://en.wikipedia.org/wiki/Wasserstein_metric
-- Optimal Transport: https://en.wikipedia.org/wiki/Transportation_theory_(mathematics)
-"""
-
 import numpy as np
 from scipy.stats import wasserstein_distance
 from typing import List, Dict, Tuple, Union, Optional
@@ -18,10 +5,38 @@ import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 import pandas as pd
 import os
+import yaml
 from datetime import datetime
 import importlib
 import inspect
 import sys
+
+# Set global matplotlib style for all plots (publication-grade, serif, colorblind-friendly)
+import matplotlib as mpl
+mpl.rcParams.update({
+    'font.family': 'serif',
+    'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif', 'serif'],
+    'axes.labelsize': 16,
+    'axes.titlesize': 16,
+    'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 14,
+    'legend.title_fontsize': 15,
+    'figure.titlesize': 16,
+    'pdf.fonttype': 42,
+    'ps.fonttype': 42,
+    'axes.edgecolor': 'gray',
+    'axes.linewidth': 1.2,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'grid.color': 'gray',
+    'grid.linestyle': ':',
+    'grid.alpha': 0.3,
+})
 
 # Import all agents from the agents folder
 from agents import (
@@ -32,7 +47,7 @@ from agents import (
     GaussianEpsilonGreedyAgent,
     GaussianUCBAgent,
     GaussianThompsonSamplingAgent,
-    # LLMAgent  # Uncomment for later use
+    LLMAgent
 )
 
 # Import all environments from the environments folder
@@ -42,421 +57,251 @@ from environments import (
 )
 from environments.gaussian_bandit import generate_configuration
 
+
+def load_env_config(config_path: str) -> Dict:
+    """Loads environment configuration from a YAML file."""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def _get_clean_label(agent_name):
+    """
+    Standardize agent labels for publication-ready plots.
+    """
+    if 'Gaussian' in agent_name and 'Epsilon' in agent_name:
+        return r'$\epsilon$-greedy'
+    if 'Gaussian' in agent_name and 'Thompson' in agent_name:
+        return 'TS'
+    if 'Gaussian' in agent_name and 'UCB' in agent_name:
+        return 'UCB'
+    if agent_name == 'Epsilon-Greedy':
+        return r'$\epsilon$-greedy'
+    if agent_name == 'Thompson Sampling':
+        return 'TS'
+    if agent_name == 'UCB':
+        return 'UCB'
+    if agent_name == 'LLM':
+        return 'LLM'
+    return agent_name
+
 class AgentBehaviorEvaluator:
     """
     A class for evaluating and comparing agent behaviors using Wasserstein metrics.
-    
-    This class provides methods to:
-    1. Calculate Wasserstein distances between agent state distributions
-    2. Compare exploration patterns
-    3. Analyze sampling distributions
-    4. Visualize behavioral differences
-    5. Save results to CSV and plots to directory
+    This is a minimal stub for test run.
     """
-    
-    def __init__(self, dimension: int = 2, output_dir: str = "Wasserstein_plots"):
-        """
-        Initialize the evaluator.
-        
-        Args:
-            dimension (int): The dimensionality of the state space being analyzed.
-                           Default is 2 for 2D environments.
-            output_dir (str): Directory to save plots and results
-        """
-        self.dimension = dimension
+    def __init__(self, output_dir: str = "Wasserstein_plots"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
-        
-        # Initialize results storage
-        self.comparison_results = []
-        self.agent_statistics = []
-        self.agent_states = {}  # NEW: Store states for each agent/environment
-        
-    def compute_wasserstein_distance(self, 
-                                   distribution1: np.ndarray, 
-                                   distribution2: np.ndarray,
-                                   p: int = 1) -> float:
-        """
-        Compute the p-Wasserstein distance between two distributions.
-        
-        Args:
-            distribution1 (np.ndarray): First distribution (samples or histogram)
-            distribution2 (np.ndarray): Second distribution (samples or histogram)
-            p (int): Order of the Wasserstein distance (1 or 2)
-            
-        Returns:
-            float: The p-Wasserstein distance between the distributions
-            
-        Note:
-            For p=1, this is also known as the Earth Mover's Distance
-            For p=2, this is the quadratic Wasserstein distance
-        """
-        if p == 1:
-            return wasserstein_distance(distribution1, distribution2)
-        elif p == 2:
-            # For p=2, we need to compute the squared distances
-            return np.sqrt(wasserstein_distance(distribution1, distribution2) ** 2)
-        else:
-            raise ValueError("Only p=1 or p=2 are supported")
-            
-    def compare_agent_states(self,
-                           agent1_states: List[np.ndarray],
-                           agent2_states: List[np.ndarray],
-                           agent1_name: str = "Agent1",
-                           agent2_name: str = "Agent2",
-                           metric: str = 'wasserstein') -> Dict[str, float]:
-        """
-        Compare the state distributions of two agents.
-        
-        Args:
-            agent1_states (List[np.ndarray]): List of states visited by agent 1
-            agent2_states (List[np.ndarray]): List of states visited by agent 2
-            agent1_name (str): Name of the first agent
-            agent2_name (str): Name of the second agent
-            metric (str): The metric to use ('wasserstein' or 'euclidean')
-            
-        Returns:
-            Dict[str, float]: Dictionary containing various comparison metrics
-        """
-        # Convert state lists to numpy arrays
-        states1 = np.array(agent1_states)
-        states2 = np.array(agent2_states)
-        
-        results = {
-            'agent1_name': agent1_name,
-            'agent2_name': agent2_name,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        if metric == 'wasserstein':
-            # Compute Wasserstein distance for each dimension
-            for dim in range(self.dimension):
-                dist = self.compute_wasserstein_distance(
-                    states1[:, dim], 
-                    states2[:, dim]
-                )
-                results[f'wasserstein_distance_dim_{dim}'] = float(dist)
-                
-            # Compute overall Wasserstein distance
-            results['wasserstein_distance_overall'] = float(np.mean([
-                results[f'wasserstein_distance_dim_{dim}'] 
-                for dim in range(self.dimension)
-            ]))
-            
-        # Store results for later CSV export
-        self.comparison_results.append(results)
-            
-        return results
-    
-    def analyze_exploration_pattern(self,
-                                  agent_states: List[np.ndarray],
-                                  agent_name: str,
-                                  grid_size: int = 100) -> Dict[str, np.ndarray]:
-        """
-        Analyze the exploration pattern of an agent by creating a heatmap.
-        
-        Args:
-            agent_states (List[np.ndarray]): List of states visited by the agent
-            agent_name (str): Name of the agent
-            grid_size (int): Size of the grid for creating the heatmap
-            
-        Returns:
-            Dict[str, np.ndarray]: Dictionary containing the exploration heatmap
-                                 and other metrics
-        """
-        states = np.array(agent_states)
-        
-        # Create a 2D histogram of visited states
-        heatmap, x_edges, y_edges = np.histogram2d(
-            states[:, 0], 
-            states[:, 1],
-            bins=grid_size
-        )
-        
-        # Save heatmap plot
-        plt.figure(figsize=(10, 8))
-        plt.imshow(heatmap.T, origin='lower', aspect='auto', cmap='viridis')
-        plt.colorbar(label='Visit Count')
-        plt.title(f'Exploration Pattern - {agent_name}')
-        plt.xlabel('X Position')
-        plt.ylabel('Y Position')
-        plt.savefig(os.path.join(self.output_dir, f'heatmap_{agent_name}.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        return {
-            'heatmap': heatmap,
-            'x_edges': x_edges,
-            'y_edges': y_edges,
-            'coverage': np.count_nonzero(heatmap) / (grid_size * grid_size)
-        }
-    
-    def visualize_comparison(self,
-                           agent1_states: List[np.ndarray],
-                           agent2_states: List[np.ndarray],
-                           agent1_name: str = "Agent1",
-                           agent2_name: str = "Agent2",
-                           title: str = "Agent Behavior Comparison"):
-        """
-        Create a visualization comparing the behaviors of two agents.
-        
-        Args:
-            agent1_states (List[np.ndarray]): States visited by agent 1
-            agent2_states (List[np.ndarray]): States visited by agent 2
-            agent1_name (str): Name of the first agent
-            agent2_name (str): Name of the second agent
-            title (str): Title for the visualization
-        """
-        states1 = np.array(agent1_states)
-        states2 = np.array(agent2_states)
-        
-        plt.figure(figsize=(12, 5))
-        
-        # Plot agent 1's states
-        plt.subplot(121)
-        plt.scatter(states1[:, 0], states1[:, 1], alpha=0.5, label=agent1_name)
-        plt.title(f'{agent1_name} Exploration')
-        plt.legend()
-        
-        # Plot agent 2's states
-        plt.subplot(122)
-        plt.scatter(states2[:, 0], states2[:, 1], alpha=0.5, label=agent2_name)
-        plt.title(f'{agent2_name} Exploration')
-        plt.legend()
-        
-        plt.suptitle(title)
-        plt.tight_layout()
-        
-        # Save the comparison plot
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        plt.savefig(os.path.join(self.output_dir, f'comparison_{agent1_name}_vs_{agent2_name}_{timestamp}.png'), 
-                   dpi=300, bbox_inches='tight')
-        plt.close()
-        
-    def compute_sampling_statistics(self,
-                                  agent_states: List[np.ndarray],
-                                  agent_name: str) -> Dict[str, float]:
-        """
-        Compute various statistics about the agent's sampling behavior.
-        
-        Args:
-            agent_states (List[np.ndarray]): List of states visited by the agent
-            agent_name (str): Name of the agent
-            
-        Returns:
-            Dict[str, float]: Dictionary containing various sampling statistics
-        """
-        states = np.array(agent_states)
-        
-        stats = {
-            'agent_name': agent_name,
-            'mean_position_x': float(np.mean(states[:, 0])),
-            'mean_position_y': float(np.mean(states[:, 1])),
-            'std_position_x': float(np.std(states[:, 0])),
-            'std_position_y': float(np.std(states[:, 1])),
-            'coverage_area': float(self._compute_coverage_area(states)),
-            'exploration_efficiency': float(self._compute_exploration_efficiency(states))
-        }
-        
-        # Store results for later CSV export
-        self.agent_statistics.append(stats)
-        
-        return stats
-    
-    def save_results_to_csv(self, filename: str = "wasserstein_metrics.csv"):
-        """
-        Save all collected results to a CSV file.
-        
-        Args:
-            filename (str): Name of the CSV file to save results
-        """
-        if not self.comparison_results and not self.agent_statistics:
-            print("No results to save!")
+        self.agent_states = {}
+        self.window_wass_results = []
+
+    def compute_sliding_window_wasserstein(self, llm_actions_rewards, other_actions_rewards, 
+                                           llm_name_key, other_name_key, # These are the actual keys from dict
+                                           n_arms, window_size, env_label, 
+                                           custom_plot_filename: Optional[str] = None):
+        # llm_actions_rewards and other_actions_rewards are lists of [action, reward]
+        llm_actions = np.array([item[0] for item in llm_actions_rewards])
+        other_actions = np.array([item[0] for item in other_actions_rewards])
+
+        min_len = min(len(llm_actions), len(other_actions))
+        wasserstein_distances = []
+
+        # Ensure window_size is not larger than the number of trials
+        # and at least 1 to avoid issues with range()
+        actual_window_size = min(window_size, min_len)
+        if actual_window_size < 1 and min_len > 0: # if min_len is 0, actual_window_size will be 0
+             actual_window_size = 1
+        elif min_len == 0: # No actions to compare
+            print(f"      Not enough data to compute Wasserstein for {_get_clean_label(llm_name_key)} vs {_get_clean_label(other_name_key)} in {env_label} (min_len: {min_len}, window_size: {window_size}).")
+            return
+
+        if min_len - actual_window_size + 1 <= 0 and min_len > 0 : # Not enough data points for even one window
+            print(f"      Not enough data points for a single window for {_get_clean_label(llm_name_key)} vs {_get_clean_label(other_name_key)} in {env_label} (min_len: {min_len}, window_size: {actual_window_size}).")
             return
             
-        # Create comparison results DataFrame
-        comparison_df = pd.DataFrame(self.comparison_results)
+        for i in range(min_len - actual_window_size + 1):
+            window_llm = llm_actions[i : i + actual_window_size]
+            window_other = other_actions[i : i + actual_window_size]
+            
+            # Create empirical distributions (histograms)
+            hist_llm, _ = np.histogram(window_llm, bins=np.arange(n_arms + 1) - 0.5, density=True)
+            hist_other, _ = np.histogram(window_other, bins=np.arange(n_arms + 1) - 0.5, density=True)
+            
+            # Correctly call wasserstein_distance for 1D distributions from histograms
+            dist = wasserstein_distance(np.arange(n_arms), np.arange(n_arms), u_weights=hist_llm, v_weights=hist_other)
+            wasserstein_distances.append(dist)
         
-        # Create agent statistics DataFrame
-        stats_df = pd.DataFrame(self.agent_statistics)
+        if not wasserstein_distances: # Avoid plotting if no data
+            print(f"      No Wasserstein distances computed for {_get_clean_label(llm_name_key)} vs {_get_clean_label(other_name_key)} in {env_label} (min_len: {min_len}, window_size: {actual_window_size}).")
+            return
+
+        # Store results
+        self.window_wass_results.append({
+            'Environment': env_label,
+            'LLM_Agent': _get_clean_label(llm_name_key), # Use _get_clean_label for display
+            'Other_Agent': _get_clean_label(other_name_key), # Use _get_clean_label for display
+            'Window_Size': actual_window_size,
+            'Avg_Wasserstein_Dist': np.mean(wasserstein_distances),
+            'Std_Wasserstein_Dist': np.std(wasserstein_distances)
+        })
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.plot(wasserstein_distances, label=f"Window size: {actual_window_size}")
+        # Title uses cleaned labels (title generation removed as per request)
+        # title = f'Sliding Window Wasserstein Distance: {_get_clean_label(llm_name_key)} vs {_get_clean_label(other_name_key)} ({env_label})'
+        # plt.title(title, fontsize=14) 
+        plt.xlabel('Window Start Index', fontsize=12, fontweight='bold')
+        plt.ylabel('Wasserstein Distance', fontsize=12, fontweight='bold')
+        plt.legend()
+        plt.grid(True, linestyle='--', alpha=0.7)
         
-        # Save both DataFrames to separate sheets in an Excel file
+        # Determine filename
+        if custom_plot_filename:
+            plot_filename = custom_plot_filename
+        else:
+            # Fallback to original naming convention if no custom name provided
+            plot_filename = f"wasserstein_dist_{_get_clean_label(llm_name_key)}_vs_{_get_clean_label(other_name_key)}_{env_label}_ws{actual_window_size}.pdf"
+        
+        plot_path = os.path.join(self.output_dir, plot_filename)
+        plt.savefig(plot_path, format='pdf', bbox_inches='tight')
+        plt.close()
+        print(f"      Plot saved to {plot_path}")
+
+    def save_results_to_csv(self, filename: str = "wasserstein_metrics_test.csv"):
+        window_wass_df = pd.DataFrame(self.window_wass_results)
         excel_path = os.path.join(self.output_dir, filename.replace('.csv', '.xlsx'))
         with pd.ExcelWriter(excel_path) as writer:
-            comparison_df.to_excel(writer, sheet_name='Agent_Comparisons', index=False)
-            stats_df.to_excel(writer, sheet_name='Agent_Statistics', index=False)
-            
+            if not window_wass_df.empty:
+                window_wass_df.to_excel(writer, sheet_name='SlidingWindow_Wass', index=False)
         print(f"Results saved to {excel_path}")
-    
-    def _compute_coverage_area(self, states: np.ndarray) -> float:
-        """
-        Compute the area covered by the agent's exploration.
-        
-        Args:
-            states (np.ndarray): Array of states visited by the agent
-            
-        Returns:
-            float: The area of the convex hull of visited states
-        """
-        from scipy.spatial import ConvexHull
-        if len(states) < 3:
-            return 0.0
-        hull = ConvexHull(states)
-        return hull.volume
-    
-    def _compute_exploration_efficiency(self, states: np.ndarray) -> float:
-        """
-        Compute the efficiency of the agent's exploration.
-        
-        Args:
-            states (np.ndarray): Array of states visited by the agent
-            
-        Returns:
-            float: A measure of exploration efficiency (0 to 1)
-        """
-        if len(states) < 2:
-            return 0.0
-            
-        # Compute the ratio of unique states to total states
-        unique_states = np.unique(states, axis=0)
-        return len(unique_states) / len(states)
 
-# Example usage
 if __name__ == "__main__":
-    # Define the number of arms, trials, and episodes
-    n_arms = 2  # Increased from 2 to 10
-    n_trials = 5000  # Increased from 25 to 5000
-    n_episodes = 50  # Increased from 5 to 50
+    # --- Evaluation Configuration ---
+    n_trials = 25  # Sufficient for multiple 100-step windows
+    n_episodes = 25   # For action distribution comparison, 1 episode suffices
+    window_size = 2 # As requested for Wasserstein windows
+    output_dir = "Wasserstein_plots_5arms_yaml"
+    os.makedirs(output_dir, exist_ok=True)
+    evaluator = AgentBehaviorEvaluator(output_dir=output_dir)
 
-    # Initialize evaluator
-    evaluator = AgentBehaviorEvaluator(dimension=2)
+    # Load environment configurations from YAML
+    base_config_path = "configurations/environment"
+    bernoulli_config_path = os.path.join(base_config_path, "bernoulli_env.yaml")
+    gaussian_config_path = os.path.join(base_config_path, "gaussian_env.yaml")
 
-    # List of agents to evaluate
-    agents = [
+    bernoulli_config = load_env_config(bernoulli_config_path)
+    gaussian_config = load_env_config(gaussian_config_path)
+
+    # Extract parameters
+    bernoulli_probs = bernoulli_config['probabilities']
+    bernoulli_seed = bernoulli_config.get('seed') # Allows seed to be optional in YAML
+    n_arms_bernoulli = len(bernoulli_probs)
+
+    gaussian_means = gaussian_config['means']
+    gaussian_stds = gaussian_config['stds']
+    gaussian_seed = gaussian_config.get('seed') # Allows seed to be optional in YAML
+    n_arms_gaussian = len(gaussian_means)
+
+    if n_arms_bernoulli != n_arms_gaussian:
+        raise ValueError(
+            f"Mismatch in number of arms: Bernoulli ({n_arms_bernoulli}) vs Gaussian ({n_arms_gaussian}). "
+            "Please ensure YAML configurations define the same number of arms."
+        )
+    n_arms = n_arms_bernoulli # Use a single n_arms variable
+    print(f"Running evaluation with {n_arms} arms, loaded from YAML configurations.")
+
+    # Bernoulli agents
+    bernoulli_agents = [
+        LLMAgent(model="gpt-4.1-nano"),
         EpsilonGreedyAgent(epsilon=0.1, environment_type='bernoulli'),
         UCBAgent(),
-        ThompsonSamplingAgent(environment_type='bernoulli'),
-        KLUCBAgent(n_arms=n_arms),
-        GaussianEpsilonGreedyAgent(n_arms=n_arms),
+        ThompsonSamplingAgent(environment_type='bernoulli')
+    ]
+    # Gaussian agents - ensure they are initialized correctly for n_arms
+    gaussian_agents = [
+        LLMAgent(model="gpt-4.1-nano"),
+        GaussianEpsilonGreedyAgent(n_arms=n_arms, epsilon=0.1),
         GaussianUCBAgent(n_arms=n_arms),
-        GaussianThompsonSamplingAgent(n_arms=n_arms),
-        # LLMAgent()  # Uncomment for later use
+        GaussianThompsonSamplingAgent(n_arms=n_arms)
+    ]
+    
+    envs = [
+        (BernoulliBandit(n_actions=n_arms, probs=bernoulli_probs, seed=bernoulli_seed), bernoulli_agents, 'Bernoulli'),
+        (GaussianBandit(n_actions=n_arms, means=gaussian_means, stds=gaussian_stds, seed=gaussian_seed), gaussian_agents, 'Gaussian')
     ]
 
-    # List of environments to evaluate
-    environments = [
-        BernoulliBandit(n_actions=n_arms),
-        GaussianBandit(n_actions=n_arms)
-    ]
-
-    # Initialize GaussianBandit with default means and standard deviations
-    for env in environments:
-        if isinstance(env, GaussianBandit):
-            means, stds = generate_configuration(n_arms)
-            env.set(means, stds)
-
-    # Run each agent in each environment
-    for env in environments:
-        env_name = type(env).__name__
-        optimal_reward = env.optimal_reward()
-        
+    for env, agents, env_label in envs:
+        print(f"\n--- Running Evaluation for {env_label} Environment ({n_arms} arms) ---")
+        # Collect action trajectories for all agents
+        agent_states_dict = {}
         for agent in agents:
-            # Initialize tracking variables
-            cumulative_rewards = []
-            action_counts = np.zeros(n_arms)
-            regrets = []
-            rewards_over_time = []
-            
+            print(f"  Simulating agent: {_get_clean_label(agent.name)}...")
             agent_states = []
-            for episode in range(n_episodes):
-                env.reset()
-                agent.init_actions(n_arms)
-                episode_rewards = []
-                
-                for trial in range(n_trials):
+            env.reset() # Reset environment for each agent
+            agent.init_actions(n_arms) # Initialize/reset agent for n_arms
+            for trial in range(n_trials):
+                try:
                     action = agent.get_action()
-                    reward = env.pull(action)
+                except Exception as e:
+                    # print(f"    Error getting action for {agent.name}: {e}. Choosing random.")
+                    action = np.random.choice(n_arms)
+                reward = env.pull(action)
+                try:
                     agent.update(action, reward)
-                    
-                    # Track metrics
-                    action_counts[action] += 1
-                    episode_rewards.append(reward)
-                    regret = optimal_reward - reward
-                    regrets.append(regret)
-                    
-                    agent_states.append([action, reward])
-                
-                rewards_over_time.append(np.mean(episode_rewards))
-                cumulative_rewards.append(np.sum(episode_rewards))
+                except Exception as e:
+                    # print(f"    Error updating agent {agent.name}: {e}")
+                    pass
+                agent_states.append([action, reward])
+            agent_states_dict[agent.name] = agent_states
+        
+        # Compute and plot Wasserstein for LLM vs each other agent
+        llm_agent_key = None
+        for key_in_dict in agent_states_dict.keys():
+            if key_in_dict.startswith('LLM'):
+                llm_agent_key = key_in_dict
+                break
+        
+        if llm_agent_key is None:
+            print(f"LLM agent data not found for {env_label}. Skipping Wasserstein plots for this environment.")
+            continue # Skip to next environment if no LLM data
             
-            # Compute additional statistics
-            stats = {
-                'agent_name': agent.name,
-                'environment': env_name,
-                'mean_reward': np.mean(rewards_over_time),
-                'std_reward': np.std(rewards_over_time),
-                'cumulative_reward': np.sum(cumulative_rewards),
-                'average_regret': np.mean(regrets),
-                'action_distribution': action_counts / np.sum(action_counts),
-                'convergence_rate': np.mean(rewards_over_time[-10:]) / optimal_reward,  # Last 10 episodes
-                'exploration_ratio': np.sum(action_counts < np.mean(action_counts)) / n_arms
-            }
-            
-            evaluator.agent_statistics.append(stats)
-            
-            # Store agent states for later comparison
-            key = f"{agent.name}_{env_name}"
-            evaluator.agent_states[key] = agent_states
-            
-            # Generate and save exploration pattern plot
-            evaluator.analyze_exploration_pattern(agent_states, key)
-            
-            # Plot performance metrics
-            plt.figure(figsize=(15, 10))
-            
-            # Plot rewards over time
-            plt.subplot(221)
-            plt.plot(rewards_over_time)
-            plt.title(f'Average Reward Over Time - {key}')
-            plt.xlabel('Episode')
-            plt.ylabel('Average Reward')
-            
-            # Plot cumulative regret
-            plt.subplot(222)
-            plt.plot(np.cumsum(regrets))
-            plt.title(f'Cumulative Regret - {key}')
-            plt.xlabel('Trial')
-            plt.ylabel('Cumulative Regret')
-            
-            # Plot action distribution
-            plt.subplot(223)
-            plt.bar(range(n_arms), action_counts / np.sum(action_counts))
-            plt.title(f'Action Selection Distribution - {key}')
-            plt.xlabel('Action')
-            plt.ylabel('Selection Frequency')
-            
-            # Plot convergence rate
-            plt.subplot(224)
-            plt.plot(np.array(rewards_over_time) / optimal_reward)
-            plt.axhline(y=1.0, color='r', linestyle='--')
-            plt.title(f'Convergence Rate - {key}')
-            plt.xlabel('Episode')
-            plt.ylabel('Performance Ratio')
-            
-            plt.tight_layout()
-            plt.savefig(os.path.join(evaluator.output_dir, f'performance_{key}.png'), dpi=300, bbox_inches='tight')
-            plt.close()
+        for other_agent_name_key in agent_states_dict.keys():
+            if other_agent_name_key == llm_agent_key: # Correctly skip LLM vs LLM
+                continue
 
-    # Compare all pairs of agents in each environment
-    env_names = [type(env).__name__ for env in environments]
-    for env_name in env_names:
-        agent_keys = [f"{agent.name}_{env_name}" for agent in agents]
-        for i, key1 in enumerate(agent_keys):
-            for j, key2 in enumerate(agent_keys[i+1:], i+1):
-                agent1_states = evaluator.agent_states[key1]
-                agent2_states = evaluator.agent_states[key2]
-                evaluator.compare_agent_states(agent1_states, agent2_states, key1, key2)
-                # Generate and save comparison plot
-                evaluator.visualize_comparison(agent1_states, agent2_states, key1, key2, title=f"{env_name} Comparison")
+            # Generate custom filename
+            other_agent_short_label = ""
+            # Determine a short code for the filename based on other_agent_name_key (the raw name)
+            if 'EpsilonGreedy' in other_agent_name_key:
+                other_agent_short_label = "EG"
+            elif 'UCB' in other_agent_name_key:
+                other_agent_short_label = "UCB"
+            elif 'ThompsonSampling' in other_agent_name_key:
+                other_agent_short_label = "TS"
+            else:
+                # Skip if not one of the main agent types we want to compare against LLM
+                continue 
 
-    # Save all results to Excel
-    evaluator.save_results_to_csv() 
+            env_suffix = "bern" if "Bernoulli" in env_label else "gaus"
+            custom_filename = f"LLM{other_agent_short_label}_{env_suffix}.pdf"
+            
+            # Display labels for console and plot titles
+            print(f"  Computing Wasserstein: {_get_clean_label(llm_agent_key)} vs {_get_clean_label(other_agent_name_key)} for {env_label}")
+            
+            evaluator.compute_sliding_window_wasserstein(
+                llm_actions_rewards=agent_states_dict[llm_agent_key],
+                other_actions_rewards=agent_states_dict[other_agent_name_key],
+                llm_name_key=llm_agent_key, # Pass the actual key
+                other_name_key=other_agent_name_key, # Pass the actual key
+                n_arms=n_arms,
+                window_size=window_size, # User has set this to 2
+                env_label=env_label,
+                custom_plot_filename=custom_filename
+            )
+            
+    evaluator.save_results_to_csv(filename="wasserstein_metrics_5arms_yaml.xlsx")
+    print("\n--- Evaluation Complete ---")

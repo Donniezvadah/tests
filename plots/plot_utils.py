@@ -104,8 +104,7 @@ def plot_regret_with_confidence(agents, regret, confidence_intervals, config, en
         # Save plots with environment name in filename
         base_filename = f"regret_with_ci_{env_name.lower()}"
         print(f"Saving plots to {plots_dir}")
-        plt.savefig(os.path.join(plots_dir, f"{base_filename}.png"), dpi=300, bbox_inches='tight')
-        plt.savefig(os.path.join(plots_dir, f"{base_filename}.pdf"), bbox_inches='tight')
+        plt.savefig(os.path.join(plots_dir, f"{base_filename}.png"), dpi=300, bbox_inches='tight')        plt.savefig(os.path.join(plots_dir, f"{base_filename}.pdf"), bbox_inches='tight')
         plt.close()
         print("Plotting completed successfully")
         

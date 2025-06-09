@@ -75,8 +75,8 @@ def test_llm_agent():
     plt.tight_layout()
     
     # Save the plot
-    plt.savefig('test_llm_agent_results.png')
-    print("\nTest complete. Results saved to 'test_llm_agent_results.png'")
+    plt.savefig('test_llm_agent_results.pdf')
+    print("\nTest complete. Results saved to 'test_llm_agent_results.pdf'")
     print(f"Final action distribution: {action_proportions}")
     print(f"Optimal action is {np.argmax(probs)} with probability {max(probs)}")
 

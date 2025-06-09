@@ -8,7 +8,7 @@ class BernoulliBandit(BaseEnvironment):
     and 0 otherwise, where theta_k is unknown to the agent but fixed over time.
     """
 
-    def __init__(self, n_actions=10, probs=None):
+    def __init__(self, n_actions=10, probs=None, seed=None):
         """
         Initializes the Bernoulli bandit.
 
@@ -17,6 +17,8 @@ class BernoulliBandit(BaseEnvironment):
             probs (list or np.array): Optional array of probabilities for each action.
         """
         super().__init__()
+        self._rng = np.random.RandomState(seed) if seed is not None else np.random
+
         if probs is not None:
             # Convert probs to numpy array if it's a list
             probs = np.array(probs, dtype=float)
@@ -26,7 +28,7 @@ class BernoulliBandit(BaseEnvironment):
                 raise ValueError("All probabilities must be between 0 and 1")
             self._probs = probs
         else:
-            self._probs = np.random.random(n_actions)
+            self._probs = self._rng.random(n_actions)
             
         self._initial_probs = np.copy(self._probs)
         self.action_count = n_actions
@@ -44,7 +46,7 @@ class BernoulliBandit(BaseEnvironment):
         if not (0 <= action < self.action_count):
             raise ValueError(f"Action {action} is out of bounds. Must be between 0 and {self.action_count - 1}")
 
-        return float(np.random.random() < self._probs[action])
+        return float(self._rng.random() < self._probs[action])
 
     def optimal_reward(self):
         """

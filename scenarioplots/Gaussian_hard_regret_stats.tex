@@ -1,0 +1,15 @@
+
+\begin{table}[ht]
+\centering
+\caption{Detailed hypothesis testing for final cumulative regret differences between agents in the Gaussian bandit (hard scenario). Means (μ) and standard deviations (σ) are shown for each agent. Significance stars: * p$<$0.05, ** p$<$0.01, *** p$<$0.001. The lower mean in each pair is bolded.}
+\begin{tabular}{l l c c c c c}
+\toprule
+Agent 1 & Agent 2 & $\mu_1$ & $\sigma_1$ & $\mu_2$ & $\sigma_2$ & p-value \\
+\midrule
+Epsilon-Greedy & UCB & \textbf{6.87} & 3.10 & 10.80 & 1.35 & 2.81e-05*** \
+Epsilon-Greedy & Thompson Sampling & \textbf{6.87} & 3.10 & 8.29 & 1.20 & 0.0746 \
+Epsilon-Greedy & LLM & \textbf{6.87} & 3.10 & 8.15 & 3.41 & 0.233 \
+UCB & Thompson Sampling & 10.80 & 1.35 & \textbf{8.29} & 1.20 & 4.91e-07*** \
+UCB & LLM & 10.80 & 1.35 & \textbf{8.15} & 3.41 & 0.00419** \
+Thompson Sampling & LLM & 8.29 & 1.20 & \textbf{8.15} & 3.41 & 0.868 \
+\bottomrule\end{tabular}\vspace{0.5em}\newline\textbf{Key:} * p$<$0.05, ** p$<$0.01, *** p$<$0.001. Lower mean bolded.\end{table}

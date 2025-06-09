@@ -23,21 +23,58 @@ def generate_configuration(n_actions=10):
     return means, stds
 
 class GaussianBandit(BaseEnvironment):
-    def __init__(self, n_actions=10):
+    def __init__(self, n_actions=10, means=None, stds=None, seed=None):
         """
         Initialize a Gaussian bandit environment.
         
         Args:
-            n_actions (int): Number of actions if means and stds are not provided.
+            n_actions (int): Number of actions. If means/stds are provided, this should typically match their length 
+                             or can be inferred. If means/stds are not provided, this defines the number of arms 
+                             for which parameters might be set later (e.g., via set() or internal generation).
+            means (list or np.array, optional): List of means for each arm.
+            stds (list or np.array, optional): List of standard deviations for each arm.
+            seed (int, optional): Seed for the random number generator.
         """
         super().__init__()
-        self.action_count = n_actions
-        self.means = None
-        self.stds = None
-        self._initial_means = None
-        self._initial_stds = None
-        self._optimal_action = None
-        self._optimal_mean = None
+        self._rng = np.random.RandomState(seed) if seed is not None else np.random
+
+        if means is not None and stds is not None:
+            means_arr = np.array(means, dtype=float)
+            stds_arr = np.array(stds, dtype=float)
+
+            if len(means_arr) != len(stds_arr):
+                raise ValueError("Length of means and stds must match.")
+            
+            current_n_actions = len(means_arr)
+            # n_actions from parameter is 10 by default. If it's passed as something else AND it mismatches, then error.
+            if n_actions != 10 and n_actions != current_n_actions:
+                 raise ValueError(
+                     f"Explicitly passed n_actions ({n_actions}) "
+                     f"does not match length of provided means/stds ({current_n_actions})."
+                 )
+            self.action_count = current_n_actions
+
+            if not np.all(stds_arr > 0):
+                raise ValueError("All standard deviations must be positive.")
+            
+            self.means = means_arr
+            self.stds = stds_arr
+            
+            self._initial_means = np.copy(self.means)
+            self._initial_stds = np.copy(self.stds)
+            
+            self._optimal_action = np.argmax(self.means)
+            self._optimal_mean = self.means[self._optimal_action]
+        elif n_actions is not None: # n_actions provided, but means/stds are None
+            self.action_count = n_actions
+            self.means = None 
+            self.stds = None
+            self._initial_means = None
+            self._initial_stds = None
+            self._optimal_action = None
+            self._optimal_mean = None
+        else: # Neither n_actions nor means/stds provided.
+            raise ValueError("GaussianBandit requires n_actions, or both means and stds, for initialization.")
         
     def set(self, means, stds):
         """
@@ -85,13 +122,13 @@ class GaussianBandit(BaseEnvironment):
             ValueError: If the action is out of bounds or environment not initialized.
         """
         if self.means is None or self.stds is None:
-            raise ValueError("Environment not initialized. Call set() first.")
+            raise ValueError("Environment not initialized. Call __init__ with means/stds or use set() method if means/stds were not provided during initialization.")
             
         if not (0 <= action < self.action_count):
             raise ValueError(f"Action {action} is out of bounds. Must be between 0 and {self.action_count - 1}")
         
         # Generate reward from normal distribution
-        reward = np.random.normal(self.means[action], self.stds[action])
+        reward = self._rng.normal(self.means[action], self.stds[action])
         return float(reward)
         
     def optimal_reward(self):

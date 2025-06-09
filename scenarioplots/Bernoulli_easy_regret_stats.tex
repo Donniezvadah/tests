@@ -1,0 +1,15 @@
+
+\begin{table}[ht]
+\centering
+\caption{Detailed hypothesis testing for final cumulative regret differences between agents in the Bernoulli bandit (easy scenario). Means (μ) and standard deviations (σ) are shown for each agent. Significance stars: * p$<$0.05, ** p$<$0.01, *** p$<$0.001. The lower mean in each pair is bolded.}
+\begin{tabular}{l l c c c c c}
+\toprule
+Agent 1 & Agent 2 & $\mu_1$ & $\sigma_1$ & $\mu_2$ & $\sigma_2$ & p-value \\
+\midrule
+Epsilon-Greedy & UCB & 9.14 & 3.07 & \textbf{9.13} & 2.17 & 1 \
+Epsilon-Greedy & Thompson Sampling & 9.14 & 3.07 & \textbf{5.85} & 2.57 & 0.000992*** \
+Epsilon-Greedy & LLM & 9.14 & 3.07 & \textbf{7.25} & 2.06 & 0.0327* \
+UCB & Thompson Sampling & 9.13 & 2.17 & \textbf{5.85} & 2.57 & 0.000137*** \
+UCB & LLM & 9.13 & 2.17 & \textbf{7.25} & 2.06 & 0.00907** \
+Thompson Sampling & LLM & \textbf{5.85} & 2.57 & 7.25 & 2.06 & 0.0731 \
+\bottomrule\end{tabular}\vspace{0.5em}\newline\textbf{Key:} * p$<$0.05, ** p$<$0.01, *** p$<$0.001. Lower mean bolded.\end{table}

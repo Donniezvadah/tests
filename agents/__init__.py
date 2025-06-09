@@ -6,6 +6,7 @@ from .gaussian_ucb import GaussianUCBAgent
 from .gaussian_epsilon_greedy import GaussianEpsilonGreedyAgent
 from .gaussian_thompson_sampling import GaussianThompsonSamplingAgent
 from .ucb_kl import KLUCBAgent
+from .llm_agent import LLMAgent
 
 __all__ = [
     'BaseAgent',
@@ -16,4 +17,5 @@ __all__ = [
     'GaussianEpsilonGreedyAgent',
     'GaussianThompsonSamplingAgent',
     'KLUCBAgent',
+    'LLMAgent',
 ] 
