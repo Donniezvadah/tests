@@ -1,0 +1,8 @@
+environment,comparison,mean_dist,std_dist,window_size
+Bernoulli,LLM vs. $\epsilon$-greedy,0.1048,0.04239999999999999,5
+Bernoulli,LLM vs. UCB,0.1516,0.05770129981204929,5
+Bernoulli,LLM vs. UCB,0.1516,0.05770129981204929,5
+Bernoulli,LLM vs. TS,0.1296,0.06823957795883559,5
+Gaussian,LLM vs. $\epsilon$-greedy,0.4960000000000001,0.07513188404399293,5
+Gaussian,LLM vs. UCB,0.2488,0.09061214046693743,5
+Gaussian,LLM vs. TS,0.304,0.11702991070662233,5

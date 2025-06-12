@@ -1,0 +1,81 @@
+episode,trial,agent_name,action,reward,policy_info
+0,0,LLMAgent,0,0.0,Exploratory action (untried)
+0,1,LLMAgent,1,0.0,Exploratory action (untried)
+0,2,LLMAgent,2,0.0,Exploratory action (untried)
+0,3,LLMAgent,3,1.0,Exploratory action (untried)
+0,4,LLMAgent,4,1.0,Exploratory action (untried)
+0,5,LLMAgent,3,1.0,"3 # Action 3 has the highest observed reward, so exploiting it may yield the best immediate reward."
+0,6,LLMAgent,3,1.0,"3 # Action 3 has the highest average reward and has been tried twice, making it the best current choice."
+0,7,LLMAgent,3,0.0,"3 # Action 3 has the highest average reward (1.0) with some exploration potential, making it the best choice to maximize reward."
+0,8,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (1.0) with no variance, making it the best choice to exploit current knowledge."
+0,9,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (1.0) with no observed variance, making it the best choice to exploit."
+0,10,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (1.0) and no observed variance, making it the best choice to exploit current knowledge."
+0,11,LLMAgent,4,0.0,"4 # Action 4 has the highest average reward (1.0) and consistent performance, making it the best choice to exploit now."
+0,12,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.8) and the most observations, making it the best choice to exploit currently."
+0,13,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.833) and recent positive performance, making it the best choice to exploit now."
+0,14,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.857) and the most observations, making it the best choice to exploit current knowledge."
+0,15,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.875) and the most observations, making it the best choice to exploit current knowledge."
+0,16,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.889) with relatively low variance, making it the best choice to exploit current knowledge."
+0,17,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.9) and the most observations, making it the best choice to exploit current knowledge."
+0,18,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.909) and the most observations, making it the best choice to exploit currently."
+0,19,LLMAgent,4,1.0,"4 # Action 4 has the highest average reward (0.917) and a high number of observations, making it the best choice to exploit currently."
+0,0,EpsilonGreedyAgent,4,1.0,
+0,1,EpsilonGreedyAgent,4,1.0,
+0,2,EpsilonGreedyAgent,4,1.0,
+0,3,EpsilonGreedyAgent,2,1.0,
+0,4,EpsilonGreedyAgent,4,1.0,
+0,5,EpsilonGreedyAgent,2,0.0,
+0,6,EpsilonGreedyAgent,1,1.0,
+0,7,EpsilonGreedyAgent,4,1.0,
+0,8,EpsilonGreedyAgent,4,1.0,
+0,9,EpsilonGreedyAgent,3,1.0,
+0,10,EpsilonGreedyAgent,3,1.0,
+0,11,EpsilonGreedyAgent,4,1.0,
+0,12,EpsilonGreedyAgent,0,1.0,
+0,13,EpsilonGreedyAgent,4,0.0,
+0,14,EpsilonGreedyAgent,3,0.0,
+0,15,EpsilonGreedyAgent,3,0.0,
+0,16,EpsilonGreedyAgent,0,0.0,
+0,17,EpsilonGreedyAgent,2,1.0,
+0,18,EpsilonGreedyAgent,1,0.0,
+0,19,EpsilonGreedyAgent,4,1.0,
+0,0,UCBAgent,0,0.0,
+0,1,UCBAgent,1,0.0,
+0,2,UCBAgent,2,1.0,
+0,3,UCBAgent,3,0.0,
+0,4,UCBAgent,4,1.0,
+0,5,UCBAgent,2,0.0,
+0,6,UCBAgent,4,1.0,
+0,7,UCBAgent,4,1.0,
+0,8,UCBAgent,4,1.0,
+0,9,UCBAgent,0,0.0,
+0,10,UCBAgent,1,0.0,
+0,11,UCBAgent,3,0.0,
+0,12,UCBAgent,4,0.0,
+0,13,UCBAgent,2,0.0,
+0,14,UCBAgent,4,1.0,
+0,15,UCBAgent,4,0.0,
+0,16,UCBAgent,2,1.0,
+0,17,UCBAgent,2,1.0,
+0,18,UCBAgent,0,1.0,
+0,19,UCBAgent,0,0.0,
+0,0,ThompsonSamplingAgent,1,0.0,
+0,1,ThompsonSamplingAgent,2,1.0,
+0,2,ThompsonSamplingAgent,4,1.0,
+0,3,ThompsonSamplingAgent,2,1.0,
+0,4,ThompsonSamplingAgent,2,1.0,
+0,5,ThompsonSamplingAgent,1,0.0,
+0,6,ThompsonSamplingAgent,2,1.0,
+0,7,ThompsonSamplingAgent,3,0.0,
+0,8,ThompsonSamplingAgent,2,1.0,
+0,9,ThompsonSamplingAgent,2,0.0,
+0,10,ThompsonSamplingAgent,2,0.0,
+0,11,ThompsonSamplingAgent,3,1.0,
+0,12,ThompsonSamplingAgent,4,1.0,
+0,13,ThompsonSamplingAgent,3,0.0,
+0,14,ThompsonSamplingAgent,2,0.0,
+0,15,ThompsonSamplingAgent,4,1.0,
+0,16,ThompsonSamplingAgent,4,1.0,
+0,17,ThompsonSamplingAgent,0,1.0,
+0,18,ThompsonSamplingAgent,4,1.0,
+0,19,ThompsonSamplingAgent,3,1.0,

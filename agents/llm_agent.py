@@ -3,6 +3,8 @@ import random
 import time
 import os
 import re
+import json
+import hashlib
 from typing import Dict, List, Tuple, Optional, Any, Union
 from datetime import datetime, timedelta
 
@@ -17,7 +19,8 @@ class LLMAgent(BaseAgent):
 
     def __init__(self, api_key: str = None, model: str = "gpt-4.1-nano", 
                  temperature: float = 0.0, max_retries: int = 3, 
-                 timeout: int = 30):
+                 timeout: int = 30,
+                 cache_path: str = "llm_cache.json"): 
         """
         Initialize the LLM agent with enhanced error handling.
         
@@ -33,8 +36,11 @@ class LLMAgent(BaseAgent):
         self.temperature = max(0, min(1, temperature))  # Clamp between 0 and 1
         self.max_retries = max(1, max_retries)
         self.timeout = max(5, timeout)  # Minimum 5 second timeout
+        self.cache_path = cache_path
+        self._cache = self._load_cache()
         
         # Initialize state
+        self.last_llm_response = None # To store the latest reasoning
         self._rewards = None
         self._counts = None
         self._action_history = []
@@ -59,6 +65,19 @@ class LLMAgent(BaseAgent):
         
         # Test the API connection
         self._test_connection()
+
+    def update(self, action: int, reward: float):
+        """
+        Update the agent's internal state with the result of an action.
+        
+        Args:
+            action (int): The action that was taken.
+            reward (float): The reward that was received.
+        """
+        self._rewards[action] += reward
+        self._counts[action] += 1
+        self._action_history.append(action)
+        self._reward_history.append(reward)
 
     def init_actions(self, n_actions):
         """
@@ -196,6 +215,28 @@ class LLMAgent(BaseAgent):
         
         # If we get here, all retries failed
         raise RuntimeError(f"Failed to get response from LLM after {self.max_retries} attempts: {str(last_error)}")
+
+    def _load_cache(self) -> Dict[str, str]:
+        """Load the cache from a JSON file."""
+        if os.path.exists(self.cache_path):
+            try:
+                with open(self.cache_path, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}
+
+    def _save_cache(self):
+        """Save the current cache to a JSON file."""
+        try:
+            with open(self.cache_path, 'w') as f:
+                json.dump(self._cache, f, indent=4)
+        except IOError as e:
+            print(f"Warning: Could not save LLM cache to {self.cache_path}: {e}")
+
+    def _get_prompt_hash(self, prompt: str) -> str:
+        """Generate a unique hash for a given prompt."""
+        return hashlib.sha256(prompt.encode('utf-8')).hexdigest()
     
     def _parse_action_from_response(self, response_text: str) -> int:
         """
@@ -234,22 +275,20 @@ class LLMAgent(BaseAgent):
     
     def get_action(self) -> int:
         """
-        Choose an action using the LLM.
+        Get the next action from the LLM, using caching to avoid repeated API calls.
         
         Returns:
-            int: The index of the chosen action.
-            
-        Raises:
-            ValueError: If the agent is not initialized or if the LLM response is invalid.
-            RuntimeError: If there are issues with the LLM API calls.
+            The action to take.
         """
         if self._rewards is None or self._counts is None:
             raise ValueError("Agent has not been initialized. Call init_actions() first.")
-        
-        # If any action hasn't been tried yet, try it first
-        if np.any(self._counts == 0):
-            action = int(np.argmin(self._counts))
+
+        # Untried actions first
+        untried_actions = np.where(self._counts == 0)[0]
+        if len(untried_actions) > 0:
+            action = untried_actions[0]
             print(f"Exploring untried action: {action}")
+            self.last_llm_response = "Exploratory action (untried)"
             return action
         
         # Generate prompt with detailed context
@@ -269,17 +308,28 @@ Your response must be in the format: 'N # explanation' where N is the action num
 
 Your response:"""
 
-        # Call the LLM API with retries and caching
-        response_text = self._call_llm_api(prompt)
+        # Check cache or call API
+        prompt_hash = self._get_prompt_hash(prompt)
+        if prompt_hash in self._cache:
+            print(f"Cache hit for prompt. Using cached response.")
+            response_text = self._cache[prompt_hash]
+        else:
+            print(f"Cache miss. Calling API.")
+            response_text = self._call_llm_api(prompt)
+            self._cache[prompt_hash] = response_text
+            self._save_cache()
+
+        self.last_llm_response = response_text # Save for logging
         
-        # Parse the action from the response
-        action = self._parse_action_from_response(response_text)
+        # Parse action
+        try:
+            action = self._parse_action_from_response(response_text)
+            print(f"Parsed action {action} from response")
+        except ValueError as e:
+            print(f"Error parsing action: {e}. Choosing a random action.")
+            action = np.random.choice(len(self._rewards))
+        
         print(f"LLM chose action {action}")
-        
-        # Validate the action is within bounds
-        if not (0 <= action < len(self._rewards)):
-            raise ValueError(f"LLM returned invalid action {action}, must be between 0 and {len(self._rewards)-1}")
-            
         return action
     
     def update(self, action, reward):

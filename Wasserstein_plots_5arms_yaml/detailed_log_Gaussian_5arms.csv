@@ -1,0 +1,81 @@
+episode,trial,agent_name,action,reward,policy_info
+0,0,LLMAgent,0,0.4967141530112327,Exploratory action (untried)
+0,1,LLMAgent,1,0.36173569882881534,Exploratory action (untried)
+0,2,LLMAgent,2,1.6476885381006925,Exploratory action (untried)
+0,3,LLMAgent,3,3.0230298564080256,Exploratory action (untried)
+0,4,LLMAgent,4,1.765846625276664,Exploratory action (untried)
+0,5,LLMAgent,3,1.2658630430508195,"3 # Action 3 has the highest average reward, so exploiting it maximizes immediate gain."
+0,6,LLMAgent,3,3.0792128155073915,"3 # Action 3 has the highest average reward (2.144) and some uncertainty, making it the best choice to exploit while still considering exploration."
+0,7,LLMAgent,3,2.267434729152909,"3 # Action 3 has the highest average reward (2.456) and some uncertainty, making it the best choice to exploit while still considering exploration."
+0,8,LLMAgent,3,1.0305256140650478,3 # Action 3 has the highest average reward (2.409) and some exploration potential due to variance.
+0,9,LLMAgent,3,2.0425600435859645,"3 # Action 3 has the highest average reward (2.133) and a relatively high number of observations, making it the best choice to exploit current knowledge."
+0,10,LLMAgent,3,1.0365823071875377,"3 # Action 3 has the highest average reward (2.118) and has been tried most frequently, balancing exploitation with some exploration potential."
+0,11,LLMAgent,3,1.034270246429743,"3 # Action 3 has the highest average reward (1.964) with some uncertainty, making it the best choice to exploit while still considering exploration."
+0,12,LLMAgent,3,1.7419622715660341,"3 # Action 3 has the highest average reward (1.847) with some variance, making it the best choice to exploit while still considering its potential."
+0,13,LLMAgent,3,-0.4132802446577979,"3 # Action 3 has the highest average reward (1.836) with some variance, indicating strong exploitation potential."
+0,14,LLMAgent,3,-0.22491783251303277,"3 # Action 3 has the highest average reward (1.611) with some uncertainty, making it the best choice to exploit while still considering exploration."
+0,15,LLMAgent,3,0.9377124707590273,"3 # Action 3 has the highest average reward (1.444) with some variance, making it the best choice to exploit while still considering its potential."
+0,16,LLMAgent,3,0.4871688796655762,"3 # Despite some negative recent rewards, action 3 has the highest average reward (1.402) and the most data points, indicating strong potential."
+0,17,LLMAgent,3,1.814247332595274,"3 # Action 3 has the highest average reward (1.331) with some variance, making it the best choice to exploit while still considering its uncertainty."
+0,18,LLMAgent,3,0.5919759244787891,"3 # Action 3 has the highest average reward (1.366) with a substantial number of observations, making it the best choice to exploit while still considering its variance."
+0,19,LLMAgent,3,0.08769629866470852,"3 # Action 3 has the highest average reward (1.314) with some variance, indicating strong potential for maximizing reward."
+0,0,GaussianEpsilonGreedyAgent,3,2.965648768921554,
+0,1,GaussianEpsilonGreedyAgent,4,1.7742236995134644,
+0,2,GaussianEpsilonGreedyAgent,3,1.5675282046879238,
+0,3,GaussianEpsilonGreedyAgent,0,-1.4247481862134568,
+0,4,GaussianEpsilonGreedyAgent,3,0.9556172754748173,
+0,5,GaussianEpsilonGreedyAgent,3,1.610922589709866,
+0,6,GaussianEpsilonGreedyAgent,3,0.3490064225776972,
+0,7,GaussianEpsilonGreedyAgent,2,1.375698018345672,
+0,8,GaussianEpsilonGreedyAgent,4,1.399361310081195,
+0,9,GaussianEpsilonGreedyAgent,0,-0.2916937497932768,
+0,10,GaussianEpsilonGreedyAgent,4,1.398293387770603,
+0,11,GaussianEpsilonGreedyAgent,4,3.852278184508938,
+0,12,GaussianEpsilonGreedyAgent,4,1.986502775262066,
+0,13,GaussianEpsilonGreedyAgent,4,0.9422890710440996,
+0,14,GaussianEpsilonGreedyAgent,4,2.822544912103189,
+0,15,GaussianEpsilonGreedyAgent,4,0.7791563500289778,
+0,16,GaussianEpsilonGreedyAgent,4,2.2088635950047553,
+0,17,GaussianEpsilonGreedyAgent,4,0.04032987612022443,
+0,18,GaussianEpsilonGreedyAgent,4,0.6718139511015695,
+0,19,GaussianEpsilonGreedyAgent,4,2.1968612358691235,
+0,0,GaussianUCBAgent,0,0.7384665799954104,
+0,1,GaussianUCBAgent,1,0.6713682811899705,
+0,2,GaussianUCBAgent,2,0.8843517176117595,
+0,3,GaussianUCBAgent,3,1.1988963044107113,
+0,4,GaussianUCBAgent,4,0.5214780096325726,
+0,5,GaussianUCBAgent,3,0.7801557916052914,
+0,6,GaussianUCBAgent,2,0.5393612290402126,
+0,7,GaussianUCBAgent,0,1.0571222262189157,
+0,8,GaussianUCBAgent,1,0.8436182895684614,
+0,9,GaussianUCBAgent,4,0.23695984463726605,
+0,10,GaussianUCBAgent,3,1.824083969394795,
+0,11,GaussianUCBAgent,0,-0.38508228041631654,
+0,12,GaussianUCBAgent,1,-0.17692200030595873,
+0,13,GaussianUCBAgent,2,1.6116762888408678,
+0,14,GaussianUCBAgent,3,2.530999522495951,
+0,15,GaussianUCBAgent,3,2.431280119116199,
+0,16,GaussianUCBAgent,3,0.6607824767773615,
+0,17,GaussianUCBAgent,2,0.6907876241487854,
+0,18,GaussianUCBAgent,4,2.331263431403564,
+0,19,GaussianUCBAgent,4,2.975545127122359,
+0,0,GaussianThompsonSamplingAgent,4,1.52082576215471,
+0,1,GaussianThompsonSamplingAgent,1,0.31434102333618286,
+0,2,GaussianThompsonSamplingAgent,2,-0.1063349740060282,
+0,3,GaussianThompsonSamplingAgent,4,0.8037933759193292,
+0,4,GaussianThompsonSamplingAgent,4,2.812525822394198,
+0,5,GaussianThompsonSamplingAgent,0,1.356240028570823,
+0,6,GaussianThompsonSamplingAgent,4,1.927989878419666,
+0,7,GaussianThompsonSamplingAgent,0,1.0035328978920242,
+0,8,GaussianThompsonSamplingAgent,4,2.361636025047634,
+0,9,GaussianThompsonSamplingAgent,4,1.3548802453948756,
+0,10,GaussianThompsonSamplingAgent,3,1.861395605508414,
+0,11,GaussianThompsonSamplingAgent,4,3.538036566465969,
+0,12,GaussianThompsonSamplingAgent,0,-0.03582603910995154,
+0,13,GaussianThompsonSamplingAgent,4,3.564643655814006,
+0,14,GaussianThompsonSamplingAgent,4,-0.6197451040897444,
+0,15,GaussianThompsonSamplingAgent,4,2.821902504375224,
+0,16,GaussianThompsonSamplingAgent,4,2.087047068238171,
+0,17,GaussianThompsonSamplingAgent,3,1.2009926495341325,
+0,18,GaussianThompsonSamplingAgent,4,2.0917607765355024,
+0,19,GaussianThompsonSamplingAgent,4,0.0124310853991072,

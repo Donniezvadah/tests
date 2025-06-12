@@ -1,6 +1,6 @@
 import numpy as np
-from scipy.stats import wasserstein_distance
-from typing import List, Dict, Tuple, Union, Optional
+from scipy.stats import wasserstein_distance, norm
+from typing import List, Dict, Tuple, Union, Optional, Any
 import matplotlib.pyplot as plt
 import seaborn as sns # For potentially enhanced summary plots
 import pandas as pd
@@ -12,6 +12,7 @@ import importlib
 import inspect
 import sys
 import os
+import random
 
 # Set global matplotlib style for all plots (publication-grade, serif, colorblind-friendly)
 import matplotlib as mpl
@@ -356,6 +357,46 @@ class AgentBehaviorEvaluator:
         plt.close()
         print(f"Summary metrics plot saved to {plot_path}")
 
+    def plot_summary_wasserstein_violin(self):
+        """Generates and saves a violin plot of Wasserstein distance distributions."""
+        if not self.all_env_wasserstein_data:
+            print("No Wasserstein data available to generate violin plot.")
+            return
+
+        plot_data = []
+        for env_label, comparisons in self.all_env_wasserstein_data.items():
+            for comparison_label, data in comparisons.items():
+                for distance in data['distances']:
+                    plot_data.append({
+                        'Environment': env_label,
+                        'Comparison': comparison_label,
+                        'Wasserstein Distance': distance
+                    })
+
+        if not plot_data:
+            print("No Wasserstein distances recorded. Skipping violin plot.")
+            return
+
+        df = pd.DataFrame(plot_data)
+
+        plt.figure(figsize=(14, 8))
+        sns.violinplot(data=df, x='Comparison', y='Wasserstein Distance', hue='Environment',
+                       split=True, inner='quart', palette='viridis', cut=0)
+
+        plt.xlabel('Agent Comparison', fontsize=14)
+        plt.ylabel('Wasserstein Distance', fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=11)
+        plt.yticks(fontsize=11)
+        plt.legend(title='Environment Type', fontsize='11', title_fontproperties={'weight':'normal', 'size':'13'}, prop={'weight':'normal'})
+        plt.grid(True, linestyle='--', alpha=0.3, axis='y')
+        plt.tight_layout()
+
+        plot_filename = "summary_violin_wasserstein_distances.pdf"
+        plot_path = os.path.join(self.output_dir, plot_filename)
+        plt.savefig(plot_path, format='pdf', bbox_inches='tight', dpi=300)
+        plt.close()
+        print(f"Summary violin plot saved to {plot_path}")
+
     def save_results_to_csv(self, filename: str = "wasserstein_metrics_test.csv"):
         window_wass_df = pd.DataFrame(self.window_wass_results)
         # excel_path = os.path.join(self.output_dir, filename.replace('.csv', '.xlsx'))
@@ -385,146 +426,245 @@ class AgentBehaviorEvaluator:
             else:
                 print(f"No data to save to CSV.")
 
+    def save_detailed_log_to_csv(self, detailed_log: List[Dict[str, Any]], filename: str):
+        """Saves the detailed simulation log to a CSV file."""
+        if not detailed_log:
+            print("Warning: Detailed log is empty, skipping CSV save.")
+            return
+        df = pd.DataFrame(detailed_log)
+        filepath = os.path.join(self.output_dir, filename)
+        df.to_csv(filepath, index=False)
+        print(f"Detailed log saved to {filepath}")
+
+    def plot_true_distributions(self, environment: 'BaseBanditEnv', env_label: str):
+        """Plots the true underlying reward distributions for the environment's arms."""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        n_arms = environment.action_count
+
+        if isinstance(environment, BernoulliBandit):
+            probs = environment._probs
+            ax.bar(np.arange(n_arms), probs, color=sns.color_palette('viridis', n_arms))
+            ax.set_title(f'True Reward Probabilities for {env_label} Environment', fontsize=16)
+            ax.set_xlabel('Action (Arm)', fontsize=12)
+            ax.set_ylabel('Probability of Reward (p)', fontsize=12)
+            ax.set_xticks(np.arange(n_arms))
+            ax.set_ylim(0, 1)
+
+        elif isinstance(environment, GaussianBandit):
+            means = environment.means
+            stds = environment.stds
+            x = np.linspace(np.min(means) - 3 * np.max(stds), np.max(means) + 3 * np.max(stds), 1000)
+            for i in range(n_arms):
+                pdf = norm.pdf(x, means[i], stds[i])
+                ax.plot(x, pdf, label=f'Arm {i} (μ={means[i]:.2f}, σ={stds[i]:.2f})')
+            ax.set_title(f'True Reward Distributions for {env_label} Environment', fontsize=16)
+            ax.set_xlabel('Reward Value', fontsize=12)
+            ax.set_ylabel('Probability Density', fontsize=12)
+            ax.legend()
+
+        else:
+            print(f"Distribution plotting not implemented for environment type: {type(environment).__name__}")
+            plt.close(fig)
+            return
+
+        ax.grid(True, linestyle='--', alpha=0.6)
+        plt.tight_layout()
+        filename = f"true_distribution_{env_label}.pdf"
+        filepath = os.path.join(self.output_dir, filename)
+        plt.savefig(filepath, bbox_inches='tight')
+        plt.close(fig)
+        print(f"True distribution plot saved to {filepath}")
+
+    def plot_action_distribution(self, action_histories: Dict[str, np.ndarray], env_name: str):
+        """Plots the distribution of actions taken by each agent."""
+        if not action_histories:
+            print("Warning: Action histories are empty, skipping distribution plot.")
+            return
+        
+        agent_names = list(action_histories.keys())
+        n_agents = len(agent_names)
+        if n_agents == 0:
+            return
+
+        # Determine the number of arms from the data
+        all_actions = np.concatenate([h.flatten() for h in action_histories.values()])
+        n_arms = np.max(all_actions) + 1
+
+        fig, axes = plt.subplots(1, n_agents, figsize=(5 * n_agents, 5), sharey=True)
+        if n_agents == 1:
+            axes = [axes] # Make it iterable
+        fig.suptitle(f'Action Distribution per Agent in {env_name} Environment', fontsize=20, y=1.02)
+
+        for i, agent_name in enumerate(agent_names):
+            ax = axes[i]
+            history = action_histories[agent_name]
+            actions = history.flatten()
+            counts = np.bincount(actions, minlength=n_arms)
+            
+            sns.barplot(x=np.arange(n_arms), y=counts, ax=ax, palette='viridis', hue=np.arange(n_arms), legend=False)
+            ax.set_title(agent_name, fontsize=16)
+            ax.set_xlabel('Action (Arm)', fontsize=12)
+            if i == 0:
+                ax.set_ylabel('Frequency', fontsize=12)
+            ax.set_xticks(np.arange(n_arms))
+            ax.tick_params(axis='x', rotation=0)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        filename = f"action_distribution_{env_name}.pdf"
+        filepath = os.path.join(self.output_dir, filename)
+        plt.savefig(filepath, bbox_inches='tight')
+        plt.close(fig)
+        print(f"Action distribution plot saved to {filepath}")
+
+    def run_bandit_simulation(self, agents: Dict[str, 'BaseAgent'], environment: 'BaseBanditEnv', n_trials: int, n_episodes: int) -> Tuple[Dict[str, np.ndarray], List[Dict[str, Any]]]:
+        """Runs a bandit simulation for the given agents and environment."""
+        action_histories: Dict[str, np.ndarray] = {name: np.zeros((n_episodes, n_trials), dtype=int) for name in agents}
+        detailed_log = []
+        n_actions = environment.action_count
+
+        # Initialize all agents with the number of actions from the environment
+        for agent in agents.values():
+            agent.init_actions(n_actions)
+
+        for episode in range(n_episodes):
+            # Reset agents and environment for each episode
+            for agent in agents.values():
+                agent.init_actions(environment.action_count)
+            environment.reset()
+            
+            print(f"\n  --- Episode {episode + 1}/{n_episodes} ---")
+            for agent_name, agent in agents.items():
+                print(f"  Simulating agent: {agent_name}...")
+                for trial in range(n_trials):
+                    action = agent.get_action()
+                    reward = environment.pull(action)
+                    agent.update(action, reward)
+                    action_histories[agent_name][episode, trial] = action
+
+                    # Log detailed policy information
+                    policy_info = None
+                    if hasattr(agent, 'last_llm_response') and agent.last_llm_response is not None:
+                        policy_info = agent.last_llm_response
+                    elif hasattr(agent, 'q_values'):
+                        policy_info = str(agent.q_values.tolist())
+                    elif hasattr(agent, 'alpha') and hasattr(agent, 'beta'): # For Thompson Sampling
+                        policy_info = f"alpha={str(agent.alpha.tolist())}, beta={str(agent.beta.tolist())}"
+
+                    detailed_log.append({
+                        'episode': episode,
+                        'trial': trial,
+                        'agent_name': agent_name,
+                        'action': action,
+                        'reward': reward,
+                        'policy_info': policy_info
+                    })
+        
+        return action_histories, detailed_log
+
 
 if __name__ == "__main__":
+    # Set a random seed for reproducibility
+    np.random.seed(42)
+    random.seed(42)
+
     # --- Evaluation Configuration ---
-    n_trials = 2000 # To allow for 20 non-overlapping 100-step windows
-    n_episodes = 25   # For action distribution comparison, 1 episode suffices
-    window_size = 100 # As requested for Wasserstein windows
+    n_trials = 20 # Reduced for faster testing
+    n_episodes = 1   # For action distribution comparison, 1 episode suffices
+    window_size = 10  # Tumbling window size for Wasserstein distance
+
+    # --- Initialize Evaluator ---
     output_dir = "Wasserstein_plots_5arms_yaml"
-    os.makedirs(output_dir, exist_ok=True)
     evaluator = AgentBehaviorEvaluator(output_dir=output_dir)
 
-    # Load environment configurations from YAML
-    base_config_path = "configurations/environment"
-    bernoulli_config_path = os.path.join(base_config_path, "bernoulli_env.yaml")
-    gaussian_config_path = os.path.join(base_config_path, "gaussian_env.yaml")
+    # --- Environment and Agent Setup ---
+    env_configs = {
+        'Bernoulli': 'configurations/environment/bernoulli_env.yaml',
+        'Gaussian': 'configurations/environment/gaussian_env.yaml'
+    }
 
-    bernoulli_config = load_env_config(bernoulli_config_path)
-    gaussian_config = load_env_config(gaussian_config_path)
+    for env_name, config_path in env_configs.items():
+        config = load_env_config(config_path)
+        env_class_name = f"{env_name}Bandit"
+        env_class = getattr(sys.modules[__name__], env_class_name)
 
-    # Extract parameters
-    bernoulli_probs = bernoulli_config['probabilities']
-    bernoulli_seed = bernoulli_config.get('seed') # Allows seed to be optional in YAML
-    n_arms_bernoulli = len(bernoulli_probs)
+        # The 'name' key from YAML is for description, not a constructor argument.
+        config.pop('name', None)
 
-    gaussian_means = gaussian_config['means']
-    gaussian_stds = gaussian_config['stds']
-    gaussian_seed = gaussian_config.get('seed') # Allows seed to be optional in YAML
-    n_arms_gaussian = len(gaussian_means)
-
-    if n_arms_bernoulli != n_arms_gaussian:
-        raise ValueError(
-            f"Mismatch in number of arms: Bernoulli ({n_arms_bernoulli}) vs Gaussian ({n_arms_gaussian}). "
-            "Please ensure YAML configurations define the same number of arms."
-        )
-    n_arms = n_arms_bernoulli # Use a single n_arms variable
-    print(f"Running evaluation with {n_arms} arms, loaded from YAML configurations.")
-
-    # Bernoulli agents
-    bernoulli_agents = [
-        LLMAgent(model="gpt-4.1-nano"),
-        EpsilonGreedyAgent(epsilon=0.1, environment_type='bernoulli'),
-        UCBAgent(),
-        ThompsonSamplingAgent(environment_type='bernoulli')
-    ]
-    # Gaussian agents - ensure they are initialized correctly for n_arms
-    gaussian_agents = [
-        LLMAgent(model="gpt-4.1-nano"),
-        GaussianEpsilonGreedyAgent(n_arms=n_arms, epsilon=0.1),
-        GaussianUCBAgent(n_arms=n_arms),
-        GaussianThompsonSamplingAgent(n_arms=n_arms)
-    ]
-    
-    envs = [
-        (BernoulliBandit(n_actions=n_arms, probs=bernoulli_probs, seed=bernoulli_seed), bernoulli_agents, 'Bernoulli'),
-        (GaussianBandit(n_actions=n_arms, means=gaussian_means, stds=gaussian_stds, seed=gaussian_seed), gaussian_agents, 'Gaussian')
-    ]
-
-    for env, agents, env_label in envs:
-        print(f"\n--- Running Evaluation for {env_label} Environment ({n_arms} arms) ---")
-        # Collect action trajectories for all agents
-        agent_states_dict = {}
-        for agent in agents:
-            print(f"  Simulating agent: {_get_clean_label(agent.name)}...")
-            agent_states = []
-            env.reset() # Reset environment for each agent
-            agent.init_actions(n_arms) # Initialize/reset agent for n_arms
-            for trial in range(n_trials):
-                try:
-                    action = agent.get_action()
-                except Exception as e:
-                    # print(f"    Error getting action for {agent.name}: {e}. Choosing random.")
-                    action = np.random.choice(n_arms)
-                reward = env.pull(action)
-                try:
-                    agent.update(action, reward)
-                except Exception as e:
-                    # print(f"    Error updating agent {agent.name}: {e}")
-                    pass
-                agent_states.append([action, reward])
-            agent_states_dict[agent.name] = agent_states
+        # Adapt config keys to match environment constructor arguments
+        if env_name == 'Bernoulli':
+            if 'probabilities' in config:
+                config['n_actions'] = len(config['probabilities'])
+                config['probs'] = config.pop('probabilities')
+            else:
+                print(f"Warning: 'probabilities' key not found for {env_name}. Skipping.")
+                continue
+        elif env_name == 'Gaussian':
+            if 'means' in config:
+                config['n_actions'] = len(config['means'])
+            else:
+                print(f"Warning: 'means' key not found for {env_name}. Skipping.")
+                continue
         
-        # Compute and plot Wasserstein for LLM vs each other agent
-        llm_agent_key = None
-        for key_in_dict in agent_states_dict.keys():
-            if key_in_dict.startswith('LLM'):
-                llm_agent_key = key_in_dict
-                break
+        env = env_class(**config)
+        n_arms = env.action_count
+        env_label = f"{env_class_name.replace('Bandit', '')}"
+        print(f"\n--- Running Evaluation for {env_name} Environment ({env.action_count} arms) ---")
+
+        # Plot true reward distributions
+        evaluator.plot_true_distributions(env, env_label)
+
+        # Agent setup
+        if env_name == 'Bernoulli':
+            agents = {
+                'LLMAgent': LLMAgent(model="gpt-4.1-nano"),
+                'EpsilonGreedyAgent': EpsilonGreedyAgent(epsilon=0.1),
+                'UCBAgent': UCBAgent(),
+                'ThompsonSamplingAgent': ThompsonSamplingAgent()
+            }
+        elif env_name == 'Gaussian':
+            agents = {
+                'LLMAgent': LLMAgent(model="gpt-4.1-nano"),
+                'GaussianEpsilonGreedyAgent': GaussianEpsilonGreedyAgent(n_arms=n_arms, epsilon=0.1),
+                'GaussianUCBAgent': GaussianUCBAgent(n_arms=n_arms, c=2),
+                'GaussianThompsonSamplingAgent': GaussianThompsonSamplingAgent(n_arms=n_arms)
+            }
+
+        # Run simulation
+        action_histories, detailed_log = evaluator.run_bandit_simulation(agents, env, n_trials, n_episodes)
         
-        if llm_agent_key is None:
-            print(f"LLM agent data not found for {env_label}. Skipping Wasserstein plots for this environment.")
-            continue # Skip to next environment if no LLM data
-            
-        for other_agent_name_key in agent_states_dict.keys():
-            if other_agent_name_key == llm_agent_key: # Correctly skip LLM vs LLM
+        # Save detailed log and plot action distributions
+        evaluator.save_detailed_log_to_csv(detailed_log, f"detailed_log_{env_label}_{n_arms}arms.csv")
+        evaluator.plot_action_distribution(action_histories, env_label)
+
+        # Convert detailed log list to a DataFrame for analysis
+        detailed_log = pd.DataFrame(detailed_log)
+
+        # --- Wasserstein Distance Analysis ---
+        llm_history = detailed_log[detailed_log['agent_name'] == 'LLMAgent'][['action', 'reward']].values.tolist()
+        llm_agent_name = 'LLMAgent'
+
+        for agent_name in agents:
+            if agent_name == llm_agent_name:
                 continue
 
-            # Generate custom filename
-            other_agent_short_label = ""
-            # Determine a short code for the filename based on other_agent_name_key (the raw name)
-            if 'EpsilonGreedy' in other_agent_name_key:
-                other_agent_short_label = "EG"
-            elif 'UCB' in other_agent_name_key:
-                other_agent_short_label = "UCB"
-            elif 'ThompsonSampling' in other_agent_name_key:
-                other_agent_short_label = "TS"
-            else:
-                # Skip if not one of the main agent types we want to compare against LLM
-                continue 
-
-            env_suffix = "bern" if "Bernoulli" in env_label else "gaus"
-            custom_filename = f"LLM{other_agent_short_label}_{env_suffix}.pdf"
+            other_history = detailed_log[detailed_log['agent_name'] == agent_name][['action', 'reward']].values.tolist()
             
-            # Display labels for console and plot titles
-            print(f"  Computing Wasserstein: {_get_clean_label(llm_agent_key)} vs {_get_clean_label(other_agent_name_key)} for {env_label}")
+            print(f"  Computing Wasserstein: LLM vs {_get_clean_label(agent_name)} for {env_name}")
             
-            wasserstein_distances, actual_window_size = evaluator.compute_tumbling_window_wasserstein(
-                llm_actions_rewards=agent_states_dict[llm_agent_key],
-                other_actions_rewards=agent_states_dict[other_agent_name_key],
-                llm_name_key=llm_agent_key, # Pass the actual key
-                other_name_key=other_agent_name_key, # Pass the actual key
-                n_arms=n_arms,
-                window_size=window_size, # User has set this to 100
-                env_label=env_label
+            distances, actual_window_size = evaluator.compute_tumbling_window_wasserstein(
+                llm_history, other_history, llm_agent_name, agent_name, n_arms, window_size, env_label
             )
             
-            # Now plot the individual comparison
+            # Plot and save individual Wasserstein distance plot
+            plot_filename = f"LLM{_get_clean_label(agent_name).replace('$-', '').replace('$', '')}_{env_label.lower()[:4]}.pdf"
             evaluator._plot_and_save_individual_wasserstein(
-                wasserstein_distances=wasserstein_distances,
-                llm_name_key=llm_agent_key,
-                other_name_key=other_agent_name_key,
-                env_label=env_label,
-                actual_window_size=actual_window_size,
-                custom_plot_filename=custom_filename
+                distances, llm_agent_name, agent_name, env_label, actual_window_size, plot_filename
             )
         
-        # After processing all agents for this environment, generate the combined plot for this environment
         evaluator.plot_combined_wasserstein_for_env(env_label)
-        evaluator.plot_wasserstein_heatmap_for_env(env_label)
-            
-    # After all environments are processed, save results and generate summary plot
-    evaluator.save_results_to_csv(filename="wasserstein_metrics_5arms_yaml.xlsx")
-    evaluator.plot_summary_wasserstein_metrics()
-    print("\n--- Evaluation Complete ---")
 
+    # --- Final Summary and Save --- 
+    evaluator.save_results_to_csv(filename="wasserstein_metrics_5arms_yaml.csv")
+    evaluator.plot_summary_wasserstein_metrics()
+    evaluator.plot_summary_wasserstein_violin()
+    print("\n--- Evaluation Complete ---")
